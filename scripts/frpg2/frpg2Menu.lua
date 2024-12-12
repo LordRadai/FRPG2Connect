@@ -11,8 +11,8 @@
 -- include other required scripts
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/StaticUI.lua]]
-require [[frpg2/mergeXmlNetwork.lua]]
-require [[frpg2/convertManifestsToJson.lua]]
+require [[FRPG2/mergeXmlNetwork.lua]]
+require [[FRPG2/convertManifestsToJson.lua]]
 
 local olderUserInitStaticUI = userInitStaticUI
 

@@ -12,4 +12,4 @@ local appScriptsDir = app.getAppScriptsDir()
 local filename = string.format("%sstartup.lua", appScriptsDir)
 require(filename)
 
-require [[frpg2/frpg2Menu.lua]]
+require [[FRPG2/frpg2Menu.lua]]
