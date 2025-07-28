@@ -2,6 +2,9 @@
 local registered_nodes = {}
 local registered_physics_nodes = {}
 local registered_conditions = {}
+local registered_transitions = {}
+local registered_messages = {}
+local registered_notes = {}
 
 -- Function to register a node with a given name and table
 function registerNode(name, node_table)
@@ -21,6 +24,21 @@ end
 -- Function to register a physics node with a given name and table
 function registerPhysicsNode(name, physics_node_table)
     registered_physics_nodes[name] = physics_node_table
+end
+
+-- Function to register a transition with a given name and table
+function registerTransition(name, transition_table)
+    registered_transitions[name] = transition_table
+end
+
+-- Function to register a message with a given name and table
+function registerMessage(name, message_table)
+    registered_messages[name] = message_table
+end
+
+-- Function to register a note with a given name and table
+function registerNote(name, note_table)
+    registered_notes[name] = note_table
 end
 
 -- Helper function to escape special characters in strings
@@ -80,11 +98,11 @@ end
 
 -- Function to write JSON to a file using the node name as the filename
 local function write_node_to_file(name, json_data, base_folder)
-    local file_name = base_folder .. name .. ".json"  -- Construct the file name (e.g., Node1.json)
+    local file_name = base_folder .. name .. ".json"  -- Construct the file name (e.g., base_folder/Node.json)
     local file = io.open(file_name, "w")  -- Open the file in write mode
     if file then
-        file:write(json_data)  -- Write the JSON data to the file
-        file:close()  -- Close the file
+        file:write(json_data)
+        file:close()
         print("Successfully wrote " .. file_name)
     else
         error("Could not open file for writing: " .. file_name)
@@ -95,7 +113,7 @@ end
 local function load_node(file)
     local chunk = loadfile(file)
     if chunk then
-        chunk()  -- Execute the file (which calls registerNode() inside)
+        chunk()  -- Execute the file (which calls the register function inside)
     else
         error("Could not load file: " .. file)
     end
@@ -123,89 +141,69 @@ listFiles = function(directory, extension)
   return result
 end
 
-fileExists = function(filename)
-  local handle = io.open(filename)
-  if io.type(handle) == "file" then
-    handle:close()
-    return true
-  end
-  return false
+registerNodesInFolder = function(manifest_dir)
+    local nodes = listFiles(manifest_dir, "*.lua")
+    for i=1, table.getn(nodes) do
+        require(nodes[i])
+        load_node(nodes[i])
+    end
+end
+
+initializeAndExportManifest = function(manifest_dir, output_dir, registered_table)
+    -- Clear the registered table. We use a shared table for nodes and operator, this is necessary to avoid creating duplicate entries.
+    for k in pairs(registered_table) do
+        registered_table[k] = nil
+    end
+    
+    -- Ensure the base folder exists. If not, create it.
+    if not app.directoryExists(output_dir) then
+        app.createDirectory(output_dir)
+    end
+    
+    -- Register nodes from the specified manifest directory.
+    registerNodesInFolder(manifest_dir)
+
+    -- Write each registered node to a JSON file.
+    for name, node in pairs(registered_table) do
+        local json_string = table_to_json(node)
+
+        write_node_to_file(name, json_string, output_dir)
+    end
 end
 
 -- Convert Lua table to INI format string
 convertManifestToJson = function()
-    -- Serialize the table to JSON
+    print("Converting manifest to JSON format...")
 
-    -- Animation & Physics Nodes
-    local animNodePath = mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\"
-    local operatorNodePath = mcn.getScriptsPath() .. "\\manifest\\nodes\\operator\\"
-    local physicsNodePath = mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\"
-    -- Conditions
-    local cparamCondPath = mcn.getScriptsPath() .. "\\manifest\\conditions\\cparam\\"
-    local eventCondPath = mcn.getScriptsPath() .. "\\manifest\\conditions\\event\\"
-    local physicsCondPath = mcn.getScriptsPath() .. "\\manifest\\conditions\\physics\\"
-    local requestCondPath = mcn.getScriptsPath() .. "\\manifest\\conditions\\request\\"
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\animation\\", registered_nodes)
+    print("Registered " .. table.getn(registered_nodes) .. " animation nodes.")
 
-    local animNodes = listFiles(animNodePath, "*.lua")
-    for i=1, table.getn(animNodes) do
-      require(animNodes[i])
-      load_node(animNodes[i])
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\operator\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\operator\\", registered_nodes)
+    print("Registered " .. table.getn(registered_nodes) .. " operator nodes.")
 
-    local operatorNodes = listFiles(operatorNodePath, "*.lua")
-    for i=1, table.getn(operatorNodes) do
-      require(operatorNodes[i])
-      load_node(operatorNodes[i])
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\physics\\", registered_physics_nodes)
+    print("Registered " .. table.getn(registered_physics_nodes) .. " physics nodes.")
 
-    local physicsNodes = listFiles(physicsNodePath, "*.lua")
-    for i=1, table.getn(physicsNodes) do
-        require(physicsNodes[i])
-        load_node(physicsNodes[i])
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\cparam\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\cparam\\", registered_conditions)
+    print("Registered " .. table.getn(registered_conditions) .. " cparam conditions.")
 
-    local cparamConditions = listFiles(cparamCondPath, "*.lua")
-    for i=1, table.getn(cparamConditions) do
-        require(cparamConditions[i])
-        load_node(cparamConditions[i])
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\event\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\event\\", registered_conditions)
+    print("Registered " .. table.getn(registered_conditions) .. " event conditions.")
 
-    local eventConditions = listFiles(eventCondPath, "*.lua")
-    for i=1, table.getn(eventConditions) do
-        require(eventConditions[i])
-        load_node(eventConditions[i])
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\physics\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\physics\\", registered_conditions)
+    print("Registered " .. table.getn(registered_conditions) .. " physics conditions.")
 
-    local physicsConditions = listFiles(physicsCondPath, "*.lua")
-    for i=1, table.getn(physicsConditions) do
-        require(physicsConditions[i])
-        load_node(physicsConditions[i])
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\request\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\request\\", registered_conditions)
+    print("Registered " .. table.getn(registered_conditions) .. " request conditions.")
 
-    local requestConditions = listFiles(requestCondPath, "*.lua")
-    for i=1, table.getn(requestConditions) do
-        require(requestConditions[i])
-        load_node(requestConditions[i])
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\transitions\\", mcn.getApplicationRoot() .. "\\jsonManifest\\transitions\\", registered_transitions)
+    print("Registered " .. table.getn(registered_transitions) .. " transitions.")
 
-    -- Now, `registered_nodes` holds all the nodes with their names as keys.
-    for name, node in pairs(registered_nodes) do
-        local json_string = table_to_json(node)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\messages\\", mcn.getApplicationRoot() .. "\\jsonManifest\\messages\\", registered_messages)
+    print("Registered " .. table.getn(registered_messages) .. " messages.")
 
-        write_node_to_file(name, json_string, mcn.getApplicationRoot() .. "\\jsonManifest\\animation\\")
-    end
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\notes\\", mcn.getApplicationRoot() .. "\\jsonManifest\\notes\\", registered_notes)
+    print("Registered " .. table.getn(registered_notes) .. " notes.")
 
-    -- Now, `registered_nodes` holds all the nodes with their names as keys.
-    for name, node in pairs(registered_physics_nodes) do
-        local json_string = table_to_json(node)
-
-        write_node_to_file(name, json_string, mcn.getApplicationRoot() .. "\\jsonManifest\\physics\\")
-    end
-
-    -- Now, `registered_conditions` holds all the conditions with their names as keys.
-    for name, condition in pairs(registered_conditions) do
-        local json_string = table_to_json(condition)
-
-        write_node_to_file(name, json_string, mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\")
-    end
+    print("Manifest conversion to JSON completed successfully.")
 end
