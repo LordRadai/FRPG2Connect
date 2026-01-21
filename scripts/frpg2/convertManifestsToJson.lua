@@ -1,5 +1,7 @@
 -- Global table to store registered nodes
 local registered_nodes = {}
+local registered_state_machines = {}
+local registered_state_machine_nodes = {}
 local registered_physics_nodes = {}
 local registered_conditions = {}
 local registered_transitions = {}
@@ -13,7 +15,12 @@ end
 
 -- Function to register a state machine with a given name and table
 function registerStateMachine(name, state_machine_table)
-    registered_nodes[name] = state_machine_table
+    registered_state_machines[name] = state_machine_table
+end
+
+-- Function to register a state machine node with a given name and table
+function registerStateMachineNode(name, state_machine_node_table)
+    registered_state_machine_nodes[name] = state_machine_node_table
 end
 
 -- Function to register a condition with a given name and table
@@ -51,6 +58,27 @@ local function escape_string(s)
     return s
 end
 
+local function is_array_table(t)
+    if type(t) ~= "table" then
+        return false
+    end
+
+    local max = 0
+    local count = 0
+
+    for k, _ in pairs(t) do
+        if type(k) ~= "number" then
+            return false
+        end
+        if k > max then
+            max = k
+        end
+        count = count + 1
+    end
+
+    return max == count
+end
+
 -- Function to convert a Lua table to a JSON string
 local function table_to_json(tbl)
     local indent_char = "    "  -- 4 spaces for indentation
@@ -67,7 +95,7 @@ local function table_to_json(tbl)
         elseif t == "string" then
             return "\"" .. escape_string(value) .. "\""
         elseif t == "table" then
-            local is_array = (table.getn(value) > 0)
+            local is_array = is_array_table(value)
             local items = {}
 
             if is_array then
@@ -178,11 +206,20 @@ convertManifestToJson = function()
     initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\animation\\", registered_nodes)
     print("Registered " .. table.getn(registered_nodes) .. " animation nodes.")
 
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\animation\\", registered_state_machines)
+    print("Registered " .. table.getn(registered_state_machines) .. " animation state machines.")
+
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\animation\\", registered_state_machine_nodes)
+    print("Registered " .. table.getn(registered_state_machine_nodes) .. " animation state machine nodes.")
+
     initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\operator\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\operator\\", registered_nodes)
     print("Registered " .. table.getn(registered_nodes) .. " operator nodes.")
 
     initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\physics\\", registered_physics_nodes)
     print("Registered " .. table.getn(registered_physics_nodes) .. " physics nodes.")
+
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\physics\\", registered_state_machines)
+    print("Registered " .. table.getn(registered_state_machines) .. " physics state machines.")
 
     initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\cparam\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\cparam\\", registered_conditions)
     print("Registered " .. table.getn(registered_conditions) .. " cparam conditions.")
