@@ -206,43 +206,45 @@ end
 convertManifestToJson = function()
     print("Converting manifest to JSON format...")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\animation\\", registered_nodes)
+    local output_dir = mcn.getApplicationRoot() .. "\\export\\"
+
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", output_dir .. "\\jsonManifest\\nodes\\animation\\", registered_nodes)
     print("Registered " .. table.getn(registered_nodes) .. " animation nodes.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\animation\\", registered_state_machines)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", output_dir .. "\\jsonManifest\\nodes\\animation\\", registered_state_machines)
     print("Registered " .. table.getn(registered_state_machines) .. " animation state machines.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\animation\\", registered_state_machine_nodes)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\animation\\", output_dir .. "\\jsonManifest\\nodes\\animation\\", registered_state_machine_nodes)
     print("Registered " .. table.getn(registered_state_machine_nodes) .. " animation state machine nodes.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\operator\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\operator\\", registered_nodes)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\operator\\", output_dir .. "\\jsonManifest\\nodes\\operator\\", registered_nodes)
     print("Registered " .. table.getn(registered_nodes) .. " operator nodes.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\physics\\", registered_physics_nodes)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\", output_dir .. "\\jsonManifest\\nodes\\physics\\", registered_physics_nodes)
     print("Registered " .. table.getn(registered_physics_nodes) .. " physics nodes.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\", mcn.getApplicationRoot() .. "\\jsonManifest\\nodes\\physics\\", registered_state_machines)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\nodes\\physics\\", output_dir .. "\\jsonManifest\\nodes\\physics\\", registered_state_machines)
     print("Registered " .. table.getn(registered_state_machines) .. " physics state machines.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\cparam\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\cparam\\", registered_conditions)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\cparam\\", output_dir .. "\\jsonManifest\\conditions\\cparam\\", registered_conditions)
     print("Registered " .. table.getn(registered_conditions) .. " cparam conditions.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\event\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\event\\", registered_conditions)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\event\\", output_dir .. "\\jsonManifest\\conditions\\event\\", registered_conditions)
     print("Registered " .. table.getn(registered_conditions) .. " event conditions.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\physics\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\physics\\", registered_conditions)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\physics\\", output_dir .. "\\jsonManifest\\conditions\\physics\\", registered_conditions)
     print("Registered " .. table.getn(registered_conditions) .. " physics conditions.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\request\\", mcn.getApplicationRoot() .. "\\jsonManifest\\conditions\\request\\", registered_conditions)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\conditions\\request\\", output_dir .. "\\jsonManifest\\conditions\\request\\", registered_conditions)
     print("Registered " .. table.getn(registered_conditions) .. " request conditions.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\transitions\\", mcn.getApplicationRoot() .. "\\jsonManifest\\transitions\\", registered_transitions)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\transitions\\", output_dir .. "\\jsonManifest\\transitions\\", registered_transitions)
     print("Registered " .. table.getn(registered_transitions) .. " transitions.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\messages\\", mcn.getApplicationRoot() .. "\\jsonManifest\\messages\\", registered_messages)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\messages\\", output_dir .. "\\jsonManifest\\messages\\", registered_messages)
     print("Registered " .. table.getn(registered_messages) .. " messages.")
 
-    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\notes\\", mcn.getApplicationRoot() .. "\\jsonManifest\\notes\\", registered_notes)
+    initializeAndExportManifest(mcn.getScriptsPath() .. "\\manifest\\notes\\", output_dir .. "\\jsonManifest\\notes\\", registered_notes)
     print("Registered " .. table.getn(registered_notes) .. " notes.")
 
     print("Manifest conversion to JSON completed successfully.")
