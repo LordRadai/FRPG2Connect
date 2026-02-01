@@ -11,9 +11,7 @@
 -- include other required scripts
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/StaticUI.lua]]
-require [[FRPG2/mergeXmlNetwork.lua]]
 require [[FRPG2/convertManifestsToJson.lua]]
-require [[FRPG2/decompileXMLNetwork.lua]]
 
 local olderUserInitStaticUI = userInitStaticUI
 
@@ -22,34 +20,16 @@ local olderUserInitStaticUI = userInitStaticUI
 ------------------------------------------------------------------------------------------------------------------------
 local addFrpg2Menu = function(mainMenuBar)
 
-  local riggingToolsMenu = mainMenuBar:addSubMenu{ name = "FRPG2", label = "&FRPG2" }
-
-  --[[riggingToolsMenu:addItem{
-    name = "MergeXMLNetwork",
-    label = "&Merge XML Network",
-    onClick = function(self)
-      createMergeNetworkXMLWindowFunc();
-    end,
-  }
+  local riggingToolsMenu = mainMenuBar:addSubMenu{ name = "Frpg2", label = "&Frpg2" }
 
   riggingToolsMenu:addItem{
-    name = "ManifestToINI",
+    name = "ManifestToJSON",
     label = "&Export Manifest to JSON",
     onClick = function(self)
       convertManifestToJson();
     end,
   }
-  --]]
-
-  riggingToolsMenu:addItem{
-    name = "Decompile XML network",
-    label = "&Decompile an XML network to MCN project file",
-    onClick = function(self)
-      decompileXMLNetwork();
-    end,
-  }
 end
-
 
 ------------------------------------------------------------------------------------------------------------------------
 -- nil userInitStaticUI()

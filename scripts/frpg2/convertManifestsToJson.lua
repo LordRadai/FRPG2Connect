@@ -99,25 +99,28 @@ local function table_to_json(tbl)
             local items = {}
 
             if is_array then
-                -- Array: Serialize as [item1, item2, ...]
                 for _, v in ipairs(value) do
-                    table.insert(items, serialize(v, indent_level + 1))
+                    local serialized = serialize(v, indent_level + 1)
+                    if serialized ~= nil then  -- skip unsupported types
+                        table.insert(items, serialized)
+                    end
                 end
                 return "[\n" .. current_indent .. indent_char .. table.concat(items, ",\n" .. current_indent .. indent_char) .. "\n" .. current_indent .. "]"
             else
-                -- Object: Serialize as {"key": value, ...}
                 for k, v in pairs(value) do
                     if type(k) == "string" then
-                        local key = "\"" .. escape_string(k) .. "\""
-                        local val = serialize(v, indent_level + 1)
-                        table.insert(items, current_indent .. indent_char .. key .. ": " .. val)
+                        local serialized = serialize(v, indent_level + 1)
+                        if serialized ~= nil then  -- skip unsupported types
+                            local key = "\"" .. escape_string(k) .. "\""
+                            table.insert(items, current_indent .. indent_char .. key .. ": " .. serialized)
+                        end
                     end
                 end
                 return "{\n" .. table.concat(items, ",\n") .. "\n" .. current_indent .. "}"
             end
         else
-            -- Handle unsupported types (like functions, userdata) as 'null'
-            return "null"
+            -- Return nil for unsupported types
+            return nil
         end
     end
 

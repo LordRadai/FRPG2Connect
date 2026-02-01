@@ -1,8 +1,7 @@
 ------------------------------------------------------------------------------------------------------------------------
 --| LUAHELP: FUNCTION
---| signature: string getAnimationFileName(string animFilePath)
---| brief: Extracts the animation node name from the given animation file path by removing directories and file extensions.
---| page: FRPG2 XML Decompiler
+--| signature: string createControlParameter(string dataType, string name, number min, number max, number defaultValue)
+--| brief: Creates a control parameter node with the specified attributes and returns its path.
 ------------------------------------------------------------------------------------------------------------------------
 createControlParameter = function(dataType, name, min, max, defaultValue)
   local paramNode = create{
