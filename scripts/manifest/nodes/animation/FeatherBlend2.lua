@@ -335,6 +335,7 @@ registerNode("FeatherBlend2",
       local source1NodeID = getConnectedNodeID(node, "Source1")
       stream:writeNetworkNodeId(source1NodeID, "Source1NodeID")
       local weightNodeInfo = getConnectedNodeInfo(node, "Weight")
+      stream:writeNetworkNodeId(weightNodeInfo.id, "Weight", weightNodeInfo.pinIndex)
 
       local blendWeights = getAttribute(node, "BlendWeights")
       stream:writeFloat(blendWeights[1], ("BlendWeight_0"))
