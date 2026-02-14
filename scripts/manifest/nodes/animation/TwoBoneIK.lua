@@ -190,9 +190,6 @@ registerNode("TwoBoneIK",
         if isValid(inputNode) ~= true then
           return nil, ("TwoBoneIK node " .. node .. " requires a valid Effector Target")
         end
-
-      else
-        return nil, ("TwoBoneIK node " .. node .. " is missing a required connection to Effector Target")
       end
 
       local targetOrientationPin = string.format("%s.TargetOrientation", node)
@@ -253,7 +250,7 @@ registerNode("TwoBoneIK",
         effectorTargetNodeInfo = getConnectedNodeInfo(effectorTargetPin)
         Stream:writeNetworkNodeId(effectorTargetNodeInfo.id, "EffectorTarget", effectorTargetNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "EffectorTarget")
+        Stream:writeNetworkNodeId(-1, "EffectorTarget", 0)
       end
 
       local targetOrientationPin = string.format("%s.TargetOrientation", node)
@@ -261,7 +258,7 @@ registerNode("TwoBoneIK",
         targetOrientationNodeInfo = getConnectedNodeInfo(targetOrientationPin)
         Stream:writeNetworkNodeId(targetOrientationNodeInfo.id, "TargetOrientation", targetOrientationNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "TargetOrientation")
+        Stream:writeNetworkNodeId(-1, "TargetOrientation", 0)
       end
 
       local swivelAnglePin = string.format("%s.SwivelAngle", node)
@@ -269,7 +266,7 @@ registerNode("TwoBoneIK",
         swivelAngleNodeInfo = getConnectedNodeInfo(swivelAnglePin)
         Stream:writeNetworkNodeId(swivelAngleNodeInfo.id, "SwivelAngle", swivelAngleNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "SwivelAngle")
+        Stream:writeNetworkNodeId(-1, "SwivelAngle", 0)
       end
 
       local blendWeightPin = string.format("%s.IkFkBlendWeight", node)
@@ -277,7 +274,7 @@ registerNode("TwoBoneIK",
         iKFkBlendWeightNodeInfo = getConnectedNodeInfo(blendWeightPin)
         Stream:writeNetworkNodeId(iKFkBlendWeightNodeInfo.id, "IkFkBlendWeight", iKFkBlendWeightNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "IkFkBlendWeight")
+        Stream:writeNetworkNodeId(-1, "IkFkBlendWeight", 0)
       end
 
       local swivelContributionToOrientationPin = string.format("%s.SwivelContributionToOrientation", node)
@@ -285,7 +282,7 @@ registerNode("TwoBoneIK",
         swivelContributionToOrientationNodeInfo = getConnectedNodeInfo(swivelContributionToOrientationPin)
         Stream:writeNetworkNodeId(swivelContributionToOrientationNodeInfo.id, "SwivelContributionToOrientation", swivelContributionToOrientationNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "SwivelContributionToOrientation")
+        Stream:writeNetworkNodeId(-1, "SwivelContributionToOrientation", 0)
       end
 
       local assumeSimpleHierarchy = true --getAttribute(node, "AssumeSimpleHierarchy")
