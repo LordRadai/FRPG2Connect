@@ -190,6 +190,9 @@ registerNode("TwoBoneIK",
         if isValid(inputNode) ~= true then
           return nil, ("TwoBoneIK node " .. node .. " requires a valid Effector Target")
         end
+
+      else
+        return nil, ("TwoBoneIK node " .. node .. " is missing a required connection to Effector Target")
       end
 
       local targetOrientationPin = string.format("%s.TargetOrientation", node)
