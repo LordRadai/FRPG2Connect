@@ -241,8 +241,6 @@ registerNode("HipsIK",
         if isValid(rotationDeltaNode) ~= true then
           return false, string.format("HipsIK node %s has no valid input to the RotationDelta", node)
         end
-      else
-        return false, string.format("HipsIK node %s must have rotation delta input", node)
       end
 
       local FootTurnWeightPin = string.format("%s.FootTurnWeight", node)
