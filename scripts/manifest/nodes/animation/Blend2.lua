@@ -525,6 +525,11 @@ if not mcn.inCommandLineMode() then
         displayFunc = function(...) safefunc(attributeEditor.blendModeDisplayInfoSection, unpack(arg)) end,
       },
       {
+        title = "Events Blend Mode",
+        usedAttributes = { "EventsBlendMode", },
+        displayFunc = function(...) safefunc(attributeEditor.blendEventBlendModeDisplayInfoSection, unpack(arg)) end,
+      },
+      {
         title = "Duration Event Blending",
         usedAttributes = {
           "DurationEventBlendPassThrough",
