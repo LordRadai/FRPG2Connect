@@ -24,18 +24,27 @@ local addPerAnimSetClipRangeSection = function(panel, selection, attributes, set
   attributeEditor.logEnterFunc("addPerAnimSetClipRangeSection")
   local clipStartWidget, clipEndWidget
 
-  -- when truning on: set the clip to match the animation file, when turning off: clear back to 0, 1
-  local defaultCheckboxChanged = function(self)
-    if self:getValue() then
+  -- ClipRangeMode values, as the asset compiler reads them
+  local kMarkerRange, kEntireRange, kCustomRange = 1, 2, 3
+  local rangeModeItems = { "Marker range", "Entire range", "Custom range" }
+  local syncing = false   -- syncInterface sets the combo; that must not write attributes back
+
+  -- Start / End only matter for a custom range; show what the other modes will play
+  local rangeModeChanged = function(self)
+    if syncing then return end
+    local mode = self:getSelectedIndex()
+    if mode < kMarkerRange or mode > kCustomRange then return end
+    setCommonAttributeValue(selection, "ClipRangeMode", mode, set)
+    if mode == kEntireRange then
       setCommonAttributeValue(selection, "ClipStartFraction", 0, set)
       setCommonAttributeValue(selection, "ClipEndFraction", 1, set)
-    else
+    elseif mode == kMarkerRange then
       for i, object in ipairs(selection) do
-        if getAttribute(object, "DefaultClip", set) == true then
-          local animationTake = getAttribute(object, "AnimationTake", set)
+        local animationTake = getAttribute(object, "AnimationTake", set)
+        if animationTake and anim.takeExists(animationTake) then
           local animPath = string.format("%s|%s", animationTake.filename, animationTake.takename)
-          local clipStartFraction = anim.getAttribute(string.format("%s.%s", animPath, "ClipStartFraction")) -- ClipStartFraction from animation
-          local clipEndFraction = anim.getAttribute(string.format("%s.%s", animPath, "ClipEndFraction")) -- ClipEndFraction from animation
+          local clipStartFraction = anim.getAttribute(string.format("%s.%s", animPath, "ClipStartFraction")) -- marked up clip start
+          local clipEndFraction = anim.getAttribute(string.format("%s.%s", animPath, "ClipEndFraction")) -- marked up clip end
           setAttribute(string.format("%s.ClipStartFraction", object), clipStartFraction, set)
           setAttribute(string.format("%s.ClipEndFraction", object), clipEndFraction, set)
         end
@@ -46,13 +55,12 @@ local addPerAnimSetClipRangeSection = function(panel, selection, attributes, set
   attributeEditor.log("panel:beginVSizer")
   panel:beginVSizer{ flags = "expand" }
 
-    -- Custom Clip checkbox
+    -- Clip range mode
     panel:beginHSizer{ flags = "expand" }
       panel:addHSpacer(6)
-      local defaultClipLabel = attributeEditor.addAttributeLabel(panel, "Default clip", selection, "DefaultClip")
-      local defaultClipCheckbox = panel:addCheckBox{ flags = "expand", onChanged = defaultCheckboxChanged }
-      bindWidgetToAttribute(defaultClipCheckbox, selection, "DefaultClip", set)
-      attributeEditor.bindAttributeHelpToWidget(defaultClipCheckbox, selection, "DefaultClip")
+      local rangeModeLabel = attributeEditor.addAttributeLabel(panel, "Clip range", selection, "ClipRangeMode")
+      local rangeModeCombo = panel:addComboBox{ flags = "expand", proportion = 1, items = rangeModeItems, onChanged = rangeModeChanged }
+      attributeEditor.bindAttributeHelpToWidget(rangeModeCombo, selection, "ClipRangeMode")
     panel:endSizer()
 
     panel:addVSpacer(3)
@@ -94,7 +102,15 @@ local addPerAnimSetClipRangeSection = function(panel, selection, attributes, set
 
   -- syncInterface
   syncInterface = function()
-    local defaultClip = getCommonAttributeValue(selection, "DefaultClip", set)
+    local rangeMode = getCommonAttributeValue(selection, "ClipRangeMode", set)
+    if rangeMode == nil then
+      rangeModeCombo:setIsIndeterminate(true)
+    else
+      rangeModeCombo:setIsIndeterminate(false)
+      syncing = true
+      rangeModeCombo:setSelectedIndex(rangeMode)
+      syncing = false
+    end
 
     -- Clip Widgets
     local duration = 0;
@@ -116,7 +132,7 @@ local addPerAnimSetClipRangeSection = function(panel, selection, attributes, set
         end
       end
 
-      local disableWidgets = duration == 0 or (not validAndCommonTake) or (defaultClip ~= false)
+      local disableWidgets = duration == 0 or (not validAndCommonTake) or (rangeMode ~= kCustomRange)
       clipStartWidget:enable(not disableWidgets)
       clipEndWidget:enable(not disableWidgets)
       clipStartLabel:enable(not disableWidgets)
@@ -129,12 +145,12 @@ local addPerAnimSetClipRangeSection = function(panel, selection, attributes, set
     end
 
     -- Enable/Disable the reset button
-    local disableResetButton = duration == 0 or containsReference(selection) or (defaultClip ~= false)
+    local disableResetButton = duration == 0 or containsReference(selection) or (rangeMode ~= kCustomRange)
     resetButton:enable(not disableResetButton)
 
-    local disableClipCheckbox = duration == 0 or containsReference(selection)
-    defaultClipCheckbox:enable(not disableClipCheckbox)
-    defaultClipLabel:enable(not disableClipCheckbox)
+    local disableRangeMode = duration == 0 or containsReference(selection)
+    rangeModeCombo:enable(not disableRangeMode)
+    rangeModeLabel:enable(not disableRangeMode)
   end
 
   local animationFilesChanged = function(resourceSet)
@@ -147,10 +163,10 @@ local addPerAnimSetClipRangeSection = function(panel, selection, attributes, set
     end
   end
 
-  -- Create a change context to watch the DefaultClip
+  -- Create a change context to watch the ClipRangeMode
   local changeContext = attributeEditor.createChangeContext()
   changeContext:setObjects(selection)
-  changeContext:addAttributeChangeEvent("DefaultClip")
+  changeContext:addAttributeChangeEvent("ClipRangeMode")
   changeContext:setAttributeChangedHandler(syncInterface)
   syncInterface()
 

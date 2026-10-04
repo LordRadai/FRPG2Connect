@@ -95,8 +95,8 @@ local dndAnimSource = function(node, animationTake)
   }
   setAttribute(node .. ".AnimationTake", adjustedTake)
 
-   -- Reset the default clip attribute to true.
-  setAttribute(node .. ".DefaultClip", true)
+   -- Reset the clip range to the take's marked up range.
+  setAttribute(node .. ".ClipRangeMode", 1)
   
    -- Reset the clip start fraction attribute to 1.0 (the max).
   setAttribute(node .. ".ClipStartFraction", clipStartFraction)
