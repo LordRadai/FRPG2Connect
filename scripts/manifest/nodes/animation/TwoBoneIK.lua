@@ -308,11 +308,11 @@ registerNode("TwoBoneIK",
       local worldSpaceTarget = getAttribute(node, "WorldSpaceTarget")
       Stream:writeBool(worldSpaceTarget, "WorldSpaceTarget")
 
+      local useSpecifiedJointAsTarget = getAttribute(node, "UseSpecifiedJointAsTarget")
+      Stream:writeBool(useSpecifiedJointAsTarget, "UseSpecifiedJointAsTarget")
+
       local useSpecifiedJointOrientation = getAttribute(node, "UseSpecifiedJointOrientation")
       Stream:writeBool(useSpecifiedJointOrientation, "UseSpecifiedJointOrientation")
-
-      local specifiedJointName = getAttribute(node, "SpecifiedJointName")
-      Stream:writeString(specifiedJointName, "SpecifiedJointName")
 
       local animSets = listAnimSets()
       for asIdx, asVal in animSets do
