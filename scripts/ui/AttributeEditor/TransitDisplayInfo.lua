@@ -77,7 +77,7 @@ attributeEditor.transitDisplayInfoSection = function(rollContainer, displayInfo,
 
       for i, object in ipairs(selection) do
         table.insert(destinationStartFractionAttrPaths, string.format("%s.DestinationStartFraction", object))
-        table.insert(destinationStartSyncEventIndexAttrPaths, string.format("%s.DestinationStartSyncEventIndex", object))
+        table.insert(destinationStartSyncEventIndexAttrPaths, string.format("%s.DestinationStartSyncEvent", object))
         table.insert(destinationStartSyncEventFractionAttrPaths, string.format("%s.DestinationStartSyncEventFraction", object))
       end
 

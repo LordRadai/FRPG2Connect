@@ -63,7 +63,7 @@ local transitAtEventToTransit = function(oldNodeTable, node)
   setAttribute(useDestinationStartSyncEventIndex, true)
   setAttribute(useDestinationStartSyncEventFraction, getAttribute(oldStartFromSetStartEventFractionInDestEvent))
 
-  local destinationStartSyncEventIndex = string.format("%s.%s", node, "DestinationStartSyncEventIndex")
+  local destinationStartSyncEventIndex = string.format("%s.%s", node, "DestinationStartSyncEvent")
   local destinationStartSyncEventFraction = string.format("%s.%s", node, "DestinationStartSyncEventFraction")
   local oldDestinationStartSyncEventIndex = string.format("%s.%s", node, "deprecated_DestinationStartEventIndex")
   local oldDestinationStartSyncEventFraction = string.format("%s.%s", node, "deprecated_DestinationStartEventFraction")
