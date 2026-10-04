@@ -143,6 +143,14 @@ registerNode("TwoBoneIK",
         name = "WorldSpaceTarget", type = "bool", value = false, perAnimSet = false,
         helptext = "If true, the target input control parameter is specified in world space; otherwise, it is expressed in character space (the coordinate frame of the trajectory joint)."
       },
+      {
+        name = "UseSpecifiedJointAsTarget", type = "bool", value = false, perAnimSet = false,
+        helptext = "If true, the IK will use a specified joint as the target instead of the default effector target."
+      },
+      {
+        name = "UseSpecifiedJointOrientation", type = "bool", value = false, perAnimSet = false,
+        helptext = "If true, the IK will use the orientation of a specified joint instead of the default effector target."
+      },
     },
 
     --------------------------------------------------------------------------------------------------------------------
@@ -299,6 +307,12 @@ registerNode("TwoBoneIK",
       
       local worldSpaceTarget = getAttribute(node, "WorldSpaceTarget")
       Stream:writeBool(worldSpaceTarget, "WorldSpaceTarget")
+
+      local useSpecifiedJointOrientation = getAttribute(node, "UseSpecifiedJointOrientation")
+      Stream:writeBool(useSpecifiedJointOrientation, "UseSpecifiedJointOrientation")
+
+      local specifiedJointName = getAttribute(node, "SpecifiedJointName")
+      Stream:writeString(specifiedJointName, "SpecifiedJointName")
 
       local animSets = listAnimSets()
       for asIdx, asVal in animSets do
@@ -465,6 +479,8 @@ attributeEditor.registerDisplayInfo(
           "UpdateTargetByDeltas",
           "FlipMidJointRotationDirection",
           "WorldSpaceTarget",
+          "UseSpecifiedJointOrientation",
+          "SpecifiedJointName",
         },
         displayFunc = function(...) safefunc(attributeEditor.twoBoneIkPropertiesSection, unpack(arg)) end
       },
