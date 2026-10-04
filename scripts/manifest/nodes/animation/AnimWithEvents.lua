@@ -82,7 +82,7 @@ registerNode("AnimWithEvents",
         helptext = "Make this animation suitable for additive blending. Subtracts the first frame from each subsequent frame."
       },
       {
-        name = "DefaultClip", type = "bool", value = true, perAnimSet = true,
+        name = "ClipRangeMode", type = "int", value = 1, perAnimSet = true,
         helptext = "Specify the start and end positions of the clip are different from those that are defined for this animation."
       },
       {
@@ -275,7 +275,7 @@ registerNode("AnimWithEvents",
       local numAnimSets = table.getn(animSets)
 
       for asIdx, asVal in ipairs(animSets) do
-        local defaultClip = getAttribute(node, "DefaultClip")
+        local clipRangeMode = getAttribute(node, "ClipRangeMode", asVal)
         local clipStartFraction = getAttribute(node, "ClipStartFraction", asVal)
         local clipEndFraction = getAttribute(node, "ClipEndFraction", asVal)
 
@@ -284,7 +284,7 @@ registerNode("AnimWithEvents",
           clipEndFraction = clipStartFraction
         end
 
-        Stream:writeBool(defaultClip, string.format("DefaultClip_%d", asIdx))
+        Stream:writeInt(clipRangeMode, string.format("ClipRangeMode_%d", asIdx))
         Stream:writeFloat(clipStartFraction, string.format("ClipStartFraction_%d", asIdx))
         Stream:writeFloat(clipEndFraction, string.format("ClipEndFraction_%d", asIdx))
 
@@ -438,7 +438,7 @@ if not mcn.inCommandLineMode() then
       },
       {
         title = "Clip Range",
-        usedAttributes = { "ClipStartFraction", "ClipEndFraction", "DefaultClip" },
+        usedAttributes = { "ClipStartFraction", "ClipEndFraction", "ClipRangeMode" },
         displayFunc = function(...) safefunc(attributeEditor.animationClipRangeDisplayInfoSection, unpack(arg)) end
       },
       {
