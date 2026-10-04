@@ -235,7 +235,8 @@ registerNode("LockFoot",
           return nil, string.format("LockFoot node %s requires a valid input to SwivelContributionToOrientation, node %s is not valid", node, weightNode)
         end
       else
-        return nil, string.format("LockFoot node %s is missing a required connection to SwivelContributionToOrientation", node)
+        -- DS2 (FRPG2): SwivelContributionToOrientation is optional
+        -- return nil, string.format("LockFoot node %s is missing a required connection to SwivelContributionToOrientation", node)
       end
 
       -- Validate Rig indices
