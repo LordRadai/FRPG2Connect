@@ -190,11 +190,9 @@ registerTransition("Transit",
       Stream:writeBool(freezeDest, "FreezeDest")
 
       local destinationStartSyncEvent = destinationStartSyncEventIndex
+      
       if useDestinationStartSyncEventFraction and not useDestinationStartSyncEventIndex then
         destinationStartSyncEvent = destinationStartSyncEventFraction
-      end
-      if useDestinationStartSyncEventFraction then
-        destinationStartSyncEvent = destinationStartSyncEvent + destinationStartSyncEventFraction
       end
 
       if sourceNodeRuntimeID ~= nil then
