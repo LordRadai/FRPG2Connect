@@ -459,8 +459,18 @@ attributeEditor.registerDisplayInfo(
     "TwoBoneIK",
     {
       {
+        title = "Use Target Joint",
+        usedAttributes = { "UseSpecifiedJointAsTarget" },
+        displayFunc = function(...) safefunc(attributeEditor.standardDisplayInfoSection, unpack(arg)) end
+      },
+      {
         title = "End Effector",
         usedAttributes = { "EndJointName" },
+        displayFunc = function(...) safefunc(attributeEditor.animSetDisplayInfoSection, unpack(arg)) end
+      },
+      {
+        title = "Target Joint",
+        usedAttributes = { "TargetJointName" },
         displayFunc = function(...) safefunc(attributeEditor.animSetDisplayInfoSection, unpack(arg)) end
       },
       {
