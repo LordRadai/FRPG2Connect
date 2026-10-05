@@ -21,7 +21,7 @@ local olderUserInitStaticUI = userInitStaticUI
 local addFrpg2Menu = function(mainMenuBar)
 
   local riggingToolsMenu = mainMenuBar:addSubMenu{ name = "Frpg2", label = "&Frpg2" }
-
+--[[
   riggingToolsMenu:addItem{
     name = "ManifestToJSON",
     label = "&Export Manifest to JSON",
@@ -29,6 +29,7 @@ local addFrpg2Menu = function(mainMenuBar)
       convertManifestToJson();
     end,
   }
+--]]
 end
 
 ------------------------------------------------------------------------------------------------------------------------
