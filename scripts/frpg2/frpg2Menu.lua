@@ -19,9 +19,9 @@ local olderUserInitStaticUI = userInitStaticUI
 -- nil addRiggingToolsMenu(MenuBar mainMenuBar)
 ------------------------------------------------------------------------------------------------------------------------
 local addFrpg2Menu = function(mainMenuBar)
-
-  local riggingToolsMenu = mainMenuBar:addSubMenu{ name = "Frpg2", label = "&Frpg2" }
 --[[
+  local riggingToolsMenu = mainMenuBar:addSubMenu{ name = "Frpg2", label = "&Frpg2" }
+
   riggingToolsMenu:addItem{
     name = "ManifestToJSON",
     label = "&Export Manifest to JSON",
