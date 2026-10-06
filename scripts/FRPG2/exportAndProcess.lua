@@ -245,7 +245,7 @@ showFrpg2ExportAndProcessDialog = function()
   if not dlg then
     dlg = ui.createModelessDialog{
       name = kDialogName,
-      caption = "FRPG2 Export and Process",
+      caption = "Export, Process and pack binders",
       centre = true,
       resize = true,
     }
