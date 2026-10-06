@@ -24,7 +24,7 @@ local addFrpg2Menu = function(mainMenuBar)
 
   riggingToolsMenu:addItem{
     name = "ExportAndProcess",
-    label = "Export and &Process...",
+    label = "Export, Process and pack binders...",
     onClick = function(self)
       showFrpg2ExportAndProcessDialog()
     end,
