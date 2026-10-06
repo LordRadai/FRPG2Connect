@@ -116,30 +116,48 @@ local runWitchyOnBinders = function(witchyPath, exportDir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
+-- nil deleteInBackground(string dir)
+-- Starts "rmdir /s /q" in its own process and returns at once; big trees (c0001) take minutes to delete.
+------------------------------------------------------------------------------------------------------------------------
+local deleteInBackground = function(dir)
+  local command = string.format("start \"\" /min cmd /c rmdir /s /q %q", dir)
+  app.execute(string.format("\"%s\"", command), false, false)
+end
+
+------------------------------------------------------------------------------------------------------------------------
 -- boolean deleteBinderFolders(string exportDir)
--- Deletes every folder inside binders once witchyBnd has packed them; binders itself and its archives stay.
+-- Empties binders of folders once witchyBnd has packed them; binders itself and its archives stay. Each folder is
+-- first renamed out of binders (instant on the same drive) into the output folder above exportDir, then deleted in
+-- the background, so Connect doesn't wait for the delete.
 ------------------------------------------------------------------------------------------------------------------------
 local deleteBinderFolders = function(exportDir)
   local bindersDir = exportDir .. "\\binders"
   local prefix = string.lower(bindersDir .. "\\")
+  local trashParent = splitFilePath(exportDir)
+  local _, exportName = splitFilePath(exportDir)
+  local stamp = os.time()
   local ok = true
 
   for _, subDirectory in ipairs(app.enumerateDirectories(bindersDir .. "\\", "")) do
     local dir = string.gsub(subDirectory, "[\\/]+$", "")
     -- only ever delete direct children of binders
     if string.sub(string.lower(dir), 1, string.len(prefix)) == prefix and string.len(dir) > string.len(prefix) then
-      app.execute(string.format("\"rmdir /s /q %q\"", dir), false, true)
-      if app.directoryExists(dir) then
-        app.error(string.format("FRPG2: couldn't delete %s", dir))
-        ok = false
+      local _, folderName = splitFilePath(dir)
+      local trash = string.format("%s\\_FRPG2_delete_%s_%s_%d", trashParent, exportName, folderName, stamp)
+      if os.rename(dir, trash) then
+        deleteInBackground(trash)
+        app.info(string.format("FRPG2: removed %s from binders, deleting it in the background", folderName))
       else
-        app.info(string.format("FRPG2: deleted %s", dir))
+        -- the rename can fail if something holds a file open; delete in place instead
+        app.warning(string.format("FRPG2: couldn't move %s out of binders, deleting it in place", dir))
+        deleteInBackground(dir)
+        ok = false
       end
     end
   end
 
   if not ok then
-    ui.showMessageBox(string.format("Some folders in\n%s\ncouldn't be deleted. See the log.", bindersDir), "ok")
+    ui.showMessageBox(string.format("Some folders in\n%s\ncouldn't be moved out and are being deleted in place.\nSee the log.", bindersDir), "ok")
   end
   return ok
 end
