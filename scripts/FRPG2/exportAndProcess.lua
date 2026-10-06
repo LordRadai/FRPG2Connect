@@ -1,21 +1,24 @@
 ------------------------------------------------------------------------------------------------------------------------
 -- FRPG2 Export and Process
 --
--- Exports the currently open network to <OutputDir>\<Name>.xml and processes it with the asset compiler into
+-- Exports the currently open network to <OutputDir>\<Name>.xml (Name = the .mcn's name) and processes it with the asset compiler into
 -- <OutputDir>\<Name>_runtimeBinary, the same way File > Export > Export and Process does, but without asking for a
--- file every time. The output folder is remembered between sessions.
+-- file every time, then runs morphemeBinderPacker.exe on <OutputDir>\<Name>_runtimeBinary. The output folder and the
+-- packer path are remembered between sessions.
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/NetworkValidationDialog.lua]]
 
 local kOutputDirPreference = "FRPG2ExportAndProcessDir"
+local kPackerPreference = "FRPG2MorphemeBinderPackerPath"
+local kPackerExe = "morphemeBinderPacker.exe"
 local kDialogName = "FRPG2ExportAndProcessDialog"
 
 ------------------------------------------------------------------------------------------------------------------------
--- string getRememberedOutputDir()
+-- string getRememberedString(string preference)
 ------------------------------------------------------------------------------------------------------------------------
-local getRememberedOutputDir = function()
-  if preferences.exists(kOutputDirPreference) then
-    local value = preferences.get(kOutputDirPreference)
+local getRememberedString = function(preference)
+  if preferences.exists(preference) then
+    local value = preferences.get(preference)
     if type(value) == "string" then
       return value
     end
@@ -24,34 +27,66 @@ local getRememberedOutputDir = function()
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- nil rememberOutputDir(string dir)
+-- nil rememberString(string preference, string value)
 ------------------------------------------------------------------------------------------------------------------------
-local rememberOutputDir = function(dir)
+local rememberString = function(preference, value)
   preferences.set{
-    name = kOutputDirPreference,
+    name = preference,
     location = "RoamingUser",
     type = "string",
-    value = dir,
+    value = value,
   }
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- string getCurrentNetworkName()
--- Name of the open .mcn without folder and extension, or "" when Connect doesn't tell us.
+-- string getDefaultPackerPath()
+-- The remembered packer path, else morphemeBinderPacker.exe next to morphemeConnect.exe if it is there.
 ------------------------------------------------------------------------------------------------------------------------
-local getCurrentNetworkName = function()
-  local getters = { "filename", "getFilename", "getNetworkFilename", "getCurrentFilename" }
-  for _, getter in ipairs(getters) do
-    local fn = mcn[getter]
-    if type(fn) == "function" then
-      local ok, filename = pcall(fn)
-      if ok and type(filename) == "string" and string.len(filename) > 0 then
-        local _, file = splitFilePath(filename)
-        return stripFilenameExtension(file)
-      end
-    end
+local getDefaultPackerPath = function()
+  local path = getRememberedString(kPackerPreference)
+  if string.len(path) > 0 then
+    return path
+  end
+  local besideConnect = app.getAppExecutableDir() .. kPackerExe
+  if app.fileExists(besideConnect) then
+    return besideConnect
   end
   return ""
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- boolean runPacker(string packerPath, string runtimeDir)
+------------------------------------------------------------------------------------------------------------------------
+local runPacker = function(packerPath, runtimeDir)
+  if string.len(packerPath) == 0 or not app.fileExists(packerPath) then
+    ui.showMessageBox(string.format("%s not found:\n%s", kPackerExe, packerPath), "ok")
+    return false
+  end
+
+  -- cmd.exe strips the outer quotes, so the whole command line is quoted once more (as AnimUtils.lua does)
+  local command = string.format("%q %q", packerPath, runtimeDir)
+  local exitCode = app.execute(string.format("\"%s\"", command), false, true)
+  if exitCode ~= 0 then
+    app.error(string.format("FRPG2: %s failed on %s (exit code %s)", kPackerExe, runtimeDir, tostring(exitCode)))
+    ui.showMessageBox(string.format("%s failed on\n%s\n(exit code %s)", kPackerExe, runtimeDir, tostring(exitCode)), "ok")
+    return false
+  end
+
+  app.info(string.format("FRPG2: packed %s", runtimeDir))
+  return true
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- string getCurrentNetworkName()
+-- Name of the open file without folder and extension, or nil for an unsaved network.
+------------------------------------------------------------------------------------------------------------------------
+local getCurrentNetworkName = function()
+  local filename = project.getFilename()
+  if type(filename) ~= "string" or string.len(filename) == 0 then
+    return nil
+  end
+  local _, file = splitFilePath(filename)
+  return stripFilenameExtension(file)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -62,9 +97,9 @@ local stripTrailingSeparator = function(dir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- boolean exportAndProcess(string outputDir, string name)
+-- boolean exportAndProcess(string outputDir, string packerPath)
 ------------------------------------------------------------------------------------------------------------------------
-local exportAndProcess = function(outputDir, name)
+local exportAndProcess = function(outputDir, packerPath)
   if not mcn.isOpen() then
     ui.showMessageBox("No network is open.", "ok")
     return false
@@ -75,8 +110,10 @@ local exportAndProcess = function(outputDir, name)
     ui.showMessageBox("Set an output folder first.", "ok")
     return false
   end
-  if string.len(name) == 0 or not isValidFilename(name) then
-    ui.showMessageBox("Set a valid network name first.", "ok")
+
+  local name = getCurrentNetworkName()
+  if not name then
+    ui.showMessageBox("The network has no file name yet. Save it first.", "ok")
     return false
   end
 
@@ -103,12 +140,13 @@ local exportAndProcess = function(outputDir, name)
     safefunc(showNetworkValidationReport, ids, warnings, errors)
   end
 
-  if result then
-    app.info(string.format("FRPG2: exported %s and processed it into %s", xmlPath, runtimeDir))
-  else
+  if not result then
     app.error(string.format("FRPG2: export and process of %s failed", xmlPath))
+    return false
   end
-  return result
+
+  app.info(string.format("FRPG2: exported %s and processed it into %s", xmlPath, runtimeDir))
+  return runPacker(packerPath, runtimeDir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -135,7 +173,7 @@ showFrpg2ExportAndProcessDialog = function()
   dlg:setBorder(3)
 
   dlg:beginVSizer{ flags = "expand", proportion = 1 }
-    dlg:beginFlexGridSizer{ rows = 2, cols = 3, flags = "expand", proportion = 0 }
+    dlg:beginFlexGridSizer{ rows = 3, cols = 3, flags = "expand", proportion = 0 }
       dlg:setFlexGridColumnExpandable(2)
 
       dlg:addStaticText{ text = "Output folder" }
@@ -143,7 +181,7 @@ showFrpg2ExportAndProcessDialog = function()
         name = "OutputDir",
         flags = "expand",
         proportion = 1,
-        value = getRememberedOutputDir(),
+        value = getRememberedString(kOutputDirPreference),
       }
       dlg:addButton{
         label = "...",
@@ -156,25 +194,40 @@ showFrpg2ExportAndProcessDialog = function()
           end
           if dirDlg:show() ~= false then
             dirTextBox:setValue(dirDlg:getPath())
-            rememberOutputDir(dirDlg:getPath())
+            rememberString(kOutputDirPreference, dirDlg:getPath())
           end
         end,
       }
 
-      dlg:addStaticText{ text = "Network name" }
-      local nameTextBox = dlg:addTextBox{
-        name = "NetworkName",
+      dlg:addStaticText{ text = "Binder packer" }
+      local packerTextBox = dlg:addTextBox{
+        name = "PackerPath",
         flags = "expand",
         proportion = 1,
-        value = getCurrentNetworkName(),
+        value = getDefaultPackerPath(),
       }
       dlg:addButton{
-        label = "Reset",
-        size = { width = 48 },
+        label = "...",
+        size = { width = 24 },
         onClick = function(self)
-          nameTextBox:setValue(getCurrentNetworkName())
+          local fileDlg = ui.createFileDialog{
+            style = "open;mustExist",
+            caption = "Locate " .. kPackerExe,
+            wildcard = "Executable|exe" }
+          if fileDlg:show() then
+            packerTextBox:setValue(fileDlg:getFullPath())
+            rememberString(kPackerPreference, fileDlg:getFullPath())
+          end
         end,
       }
+
+      dlg:addStaticText{ text = "Network" }
+      local nameText = dlg:addStaticText{
+        name = "NetworkName",
+        text = getCurrentNetworkName() or "(unsaved network)",
+        flags = "expand",
+      }
+      dlg:addHSpacer(0)
     dlg:endSizer()
 
     dlg:addVSpacer(6)
@@ -185,8 +238,11 @@ showFrpg2ExportAndProcessDialog = function()
         label = "Export and Process",
         onClick = function(self)
           local dir = dirTextBox:getValue()
-          rememberOutputDir(dir)
-          exportAndProcess(dir, nameTextBox:getValue())
+          local packer = packerTextBox:getValue()
+          rememberString(kOutputDirPreference, dir)
+          rememberString(kPackerPreference, packer)
+          nameText:setLabel(getCurrentNetworkName() or "(unsaved network)")
+          exportAndProcess(dir, packer)
         end,
       }
       dlg:addButton{
