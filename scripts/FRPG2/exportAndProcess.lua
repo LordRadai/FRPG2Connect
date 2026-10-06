@@ -1,10 +1,10 @@
 ------------------------------------------------------------------------------------------------------------------------
 -- FRPG2 Export and Process
 --
--- Exports the currently open network to <OutputDir>\<Name>.xml (Name = the .mcn's name) and processes it with the asset compiler into
--- <OutputDir>\<Name>_runtimeBinary, the same way File > Export > Export and Process does, but without asking for a
--- file every time, then runs morphemeBinderPacker.exe on <OutputDir> (it writes <OutputDir>\binders) and
--- witchyBnd.exe on binders\runtimeBinary and on every folder in binders\ext. The output folder and the tool paths are
+-- Exports the currently open network (Name = the .mcn's name) into <OutputDir>\<Name>: writes <Name>.xml, processes it with
+-- the asset compiler into <Name>_runtimeBinary (as File > Export > Export and Process does), runs
+-- morphemeBinderPacker.exe on that folder (it writes binders), runs witchyBnd.exe on binders\runtimeBinary and on
+-- every folder in binders\c0001, then deletes the folders inside binders. The output folder and the tool paths are
 -- remembered between sessions.
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/NetworkValidationDialog.lua]]
@@ -190,6 +190,11 @@ local exportAndProcess = function(outputDir, packerPath, witchyPath)
     return false
   end
 
+  -- everything goes into <output folder>\<network name>; create both levels in case createDirectory isn't recursive
+  if not app.directoryExists(outputDir) then
+    app.createDirectory(outputDir)
+  end
+  outputDir = string.format("%s\\%s", outputDir, name)
   if not app.directoryExists(outputDir) then
     app.createDirectory(outputDir)
   end
