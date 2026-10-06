@@ -69,11 +69,12 @@ local checkTool = function(exePath, exeName)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- boolean runTool(string exePath, string exeName, string targetDir)
+-- boolean runTool(string exePath, string exeName, string targetDir, string options)
+-- options (may be nil) go between the exe and the folder.
 ------------------------------------------------------------------------------------------------------------------------
-local runTool = function(exePath, exeName, targetDir)
+local runTool = function(exePath, exeName, targetDir, options)
   -- cmd.exe strips the outer quotes, so the whole command line is quoted once more (as AnimUtils.lua does)
-  local command = string.format("%q %q", exePath, targetDir)
+  local command = string.format("%q %s%q", exePath, options and (options .. " ") or "", targetDir)
   local exitCode = app.execute(string.format("\"%s\"", command), false, true)
   if exitCode ~= 0 then
     app.error(string.format("FRPG2: %s failed on %s (exit code %s)", exeName, targetDir, tostring(exitCode)))
@@ -108,7 +109,8 @@ local runWitchyOnBinders = function(witchyPath, exportDir)
   end
 
   for _, target in ipairs(targets) do
-    if not runTool(witchyPath, kWitchyExe, target) then
+    -- -p (passive): witchyBnd otherwise waits for a key press after an error, which blocks Connect
+    if not runTool(witchyPath, kWitchyExe, target, "-p") then
       return false
     end
   end
