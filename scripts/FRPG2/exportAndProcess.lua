@@ -116,6 +116,35 @@ local runWitchyOnBinders = function(witchyPath, exportDir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
+-- boolean deleteBinderFolders(string exportDir)
+-- Deletes every folder inside binders once witchyBnd has packed them; binders itself and its archives stay.
+------------------------------------------------------------------------------------------------------------------------
+local deleteBinderFolders = function(exportDir)
+  local bindersDir = exportDir .. "\\binders"
+  local prefix = string.lower(bindersDir .. "\\")
+  local ok = true
+
+  for _, subDirectory in ipairs(app.enumerateDirectories(bindersDir .. "\\", "")) do
+    local dir = string.gsub(subDirectory, "[\\/]+$", "")
+    -- only ever delete direct children of binders
+    if string.sub(string.lower(dir), 1, string.len(prefix)) == prefix and string.len(dir) > string.len(prefix) then
+      app.execute(string.format("\"rmdir /s /q %q\"", dir), false, true)
+      if app.directoryExists(dir) then
+        app.error(string.format("FRPG2: couldn't delete %s", dir))
+        ok = false
+      else
+        app.info(string.format("FRPG2: deleted %s", dir))
+      end
+    end
+  end
+
+  if not ok then
+    ui.showMessageBox(string.format("Some folders in\n%s\ncouldn't be deleted. See the log.", bindersDir), "ok")
+  end
+  return ok
+end
+
+------------------------------------------------------------------------------------------------------------------------
 -- string getCurrentNetworkName()
 -- Name of the open file without folder and extension, or nil for an unsaved network.
 ------------------------------------------------------------------------------------------------------------------------
@@ -193,7 +222,10 @@ local exportAndProcess = function(outputDir, packerPath, witchyPath)
   if not runTool(packerPath, kPackerExe, outputDir) then
     return false
   end
-  return runWitchyOnBinders(witchyPath, outputDir)
+  if not runWitchyOnBinders(witchyPath, outputDir) then
+    return false
+  end
+  return deleteBinderFolders(outputDir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
