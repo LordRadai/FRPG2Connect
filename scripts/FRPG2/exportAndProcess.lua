@@ -3,14 +3,17 @@
 --
 -- Exports the currently open network to <OutputDir>\<Name>.xml (Name = the .mcn's name) and processes it with the asset compiler into
 -- <OutputDir>\<Name>_runtimeBinary, the same way File > Export > Export and Process does, but without asking for a
--- file every time, then runs morphemeBinderPacker.exe on <OutputDir>\<Name>_runtimeBinary. The output folder and the
--- packer path are remembered between sessions.
+-- file every time, then runs morphemeBinderPacker.exe on <OutputDir> (it writes <OutputDir>\binders) and
+-- witchyBnd.exe on binders\runtimeBinary and on every folder in binders\ext. The output folder and the tool paths are
+-- remembered between sessions.
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/NetworkValidationDialog.lua]]
 
 local kOutputDirPreference = "FRPG2ExportAndProcessDir"
 local kPackerPreference = "FRPG2MorphemeBinderPackerPath"
 local kPackerExe = "morphemeBinderPacker.exe"
+local kWitchyPreference = "FRPG2WitchyBndPath"
+local kWitchyExe = "witchyBnd.exe"
 local kDialogName = "FRPG2ExportAndProcessDialog"
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -39,15 +42,15 @@ local rememberString = function(preference, value)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- string getDefaultPackerPath()
--- The remembered packer path, else morphemeBinderPacker.exe next to morphemeConnect.exe if it is there.
+-- string getDefaultToolPath(string preference, string exeName)
+-- The remembered tool path, else exeName next to morphemeConnect.exe if it is there.
 ------------------------------------------------------------------------------------------------------------------------
-local getDefaultPackerPath = function()
-  local path = getRememberedString(kPackerPreference)
+local getDefaultToolPath = function(preference, exeName)
+  local path = getRememberedString(preference)
   if string.len(path) > 0 then
     return path
   end
-  local besideConnect = app.getAppExecutableDir() .. kPackerExe
+  local besideConnect = app.getAppExecutableDir() .. exeName
   if app.fileExists(besideConnect) then
     return besideConnect
   end
@@ -55,24 +58,60 @@ local getDefaultPackerPath = function()
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- boolean runPacker(string packerPath, string runtimeDir)
+-- boolean checkTool(string exePath, string exeName)
 ------------------------------------------------------------------------------------------------------------------------
-local runPacker = function(packerPath, exportDir)
-  if string.len(packerPath) == 0 or not app.fileExists(packerPath) then
-    ui.showMessageBox(string.format("%s not found:\n%s", kPackerExe, packerPath), "ok")
+local checkTool = function(exePath, exeName)
+  if string.len(exePath) == 0 or not app.fileExists(exePath) then
+    ui.showMessageBox(string.format("%s not found:\n%s", exeName, exePath), "ok")
     return false
   end
+  return true
+end
 
+------------------------------------------------------------------------------------------------------------------------
+-- boolean runTool(string exePath, string exeName, string targetDir)
+------------------------------------------------------------------------------------------------------------------------
+local runTool = function(exePath, exeName, targetDir)
   -- cmd.exe strips the outer quotes, so the whole command line is quoted once more (as AnimUtils.lua does)
-  local command = string.format("%q %q", packerPath, exportDir)
+  local command = string.format("%q %q", exePath, targetDir)
   local exitCode = app.execute(string.format("\"%s\"", command), false, true)
   if exitCode ~= 0 then
-    app.error(string.format("FRPG2: %s failed on %s (exit code %s)", kPackerExe, exportDir, tostring(exitCode)))
-    ui.showMessageBox(string.format("%s failed on\n%s\n(exit code %s)", kPackerExe, exportDir, tostring(exitCode)), "ok")
+    app.error(string.format("FRPG2: %s failed on %s (exit code %s)", exeName, targetDir, tostring(exitCode)))
+    ui.showMessageBox(string.format("%s failed on\n%s\n(exit code %s)", exeName, targetDir, tostring(exitCode)), "ok")
     return false
   end
 
-  app.info(string.format("FRPG2: packed %s", exportDir))
+  app.info(string.format("FRPG2: ran %s on %s", exeName, targetDir))
+  return true
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- boolean runWitchyOnBinders(string witchyPath, string exportDir)
+-- Runs witchyBnd on binders\runtimeBinary (required) and on every folder in binders\ext (optional).
+------------------------------------------------------------------------------------------------------------------------
+local runWitchyOnBinders = function(witchyPath, exportDir)
+  local bindersDir = exportDir .. "\\binders"
+  local runtimeBinaryDir = bindersDir .. "\\runtimeBinary"
+  if not app.directoryExists(runtimeBinaryDir) then
+    ui.showMessageBox(string.format("%s didn't create\n%s", kPackerExe, runtimeBinaryDir), "ok")
+    return false
+  end
+
+  local targets = { runtimeBinaryDir }
+  local extDir = bindersDir .. "\\ext"
+  if app.directoryExists(extDir) then
+    local subDirectories = app.enumerateDirectories(extDir .. "\\", "")
+    table.sort(subDirectories)
+    for _, subDirectory in ipairs(subDirectories) do
+      table.insert(targets, (string.gsub(subDirectory, "[\\/]+$", "")))
+    end
+  end
+
+  for _, target in ipairs(targets) do
+    if not runTool(witchyPath, kWitchyExe, target) then
+      return false
+    end
+  end
   return true
 end
 
@@ -97,9 +136,9 @@ local stripTrailingSeparator = function(dir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- boolean exportAndProcess(string outputDir, string packerPath)
+-- boolean exportAndProcess(string outputDir, string packerPath, string witchyPath)
 ------------------------------------------------------------------------------------------------------------------------
-local exportAndProcess = function(outputDir, packerPath)
+local exportAndProcess = function(outputDir, packerPath, witchyPath)
   if not mcn.isOpen() then
     ui.showMessageBox("No network is open.", "ok")
     return false
@@ -114,6 +153,11 @@ local exportAndProcess = function(outputDir, packerPath)
   local name = getCurrentNetworkName()
   if not name then
     ui.showMessageBox("The network has no file name yet. Save it first.", "ok")
+    return false
+  end
+
+  -- check the tools before the export, so a wrong path doesn't cost a full export
+  if not checkTool(packerPath, kPackerExe) or not checkTool(witchyPath, kWitchyExe) then
     return false
   end
 
@@ -146,7 +190,10 @@ local exportAndProcess = function(outputDir, packerPath)
   end
 
   app.info(string.format("FRPG2: exported %s and processed it into %s", xmlPath, runtimeDir))
-  return runPacker(packerPath, outputDir)
+  if not runTool(packerPath, kPackerExe, outputDir) then
+    return false
+  end
+  return runWitchyOnBinders(witchyPath, outputDir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -173,7 +220,7 @@ showFrpg2ExportAndProcessDialog = function()
   dlg:setBorder(3)
 
   dlg:beginVSizer{ flags = "expand", proportion = 1 }
-    dlg:beginFlexGridSizer{ rows = 3, cols = 3, flags = "expand", proportion = 0 }
+    dlg:beginFlexGridSizer{ rows = 4, cols = 3, flags = "expand", proportion = 0 }
       dlg:setFlexGridColumnExpandable(2)
 
       dlg:addStaticText{ text = "Output folder" }
@@ -204,7 +251,7 @@ showFrpg2ExportAndProcessDialog = function()
         name = "PackerPath",
         flags = "expand",
         proportion = 1,
-        value = getDefaultPackerPath(),
+        value = getDefaultToolPath(kPackerPreference, kPackerExe),
       }
       dlg:addButton{
         label = "...",
@@ -217,6 +264,28 @@ showFrpg2ExportAndProcessDialog = function()
           if fileDlg:show() then
             packerTextBox:setValue(fileDlg:getFullPath())
             rememberString(kPackerPreference, fileDlg:getFullPath())
+          end
+        end,
+      }
+
+      dlg:addStaticText{ text = "WitchyBND" }
+      local witchyTextBox = dlg:addTextBox{
+        name = "WitchyPath",
+        flags = "expand",
+        proportion = 1,
+        value = getDefaultToolPath(kWitchyPreference, kWitchyExe),
+      }
+      dlg:addButton{
+        label = "...",
+        size = { width = 24 },
+        onClick = function(self)
+          local fileDlg = ui.createFileDialog{
+            style = "open;mustExist",
+            caption = "Locate " .. kWitchyExe,
+            wildcard = "Executable|exe" }
+          if fileDlg:show() then
+            witchyTextBox:setValue(fileDlg:getFullPath())
+            rememberString(kWitchyPreference, fileDlg:getFullPath())
           end
         end,
       }
@@ -239,10 +308,12 @@ showFrpg2ExportAndProcessDialog = function()
         onClick = function(self)
           local dir = dirTextBox:getValue()
           local packer = packerTextBox:getValue()
+          local witchy = witchyTextBox:getValue()
           rememberString(kOutputDirPreference, dir)
           rememberString(kPackerPreference, packer)
+          rememberString(kWitchyPreference, witchy)
           nameText:setLabel(getCurrentNetworkName() or "(unsaved network)")
-          exportAndProcess(dir, packer)
+          exportAndProcess(dir, packer, witchy)
         end,
       }
       dlg:addButton{
