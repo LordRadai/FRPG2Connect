@@ -98,7 +98,7 @@ local runWitchyOnBinders = function(witchyPath, exportDir)
   end
 
   local targets = { runtimeBinaryDir }
-  local extDir = bindersDir .. "\\ext"
+  local extDir = bindersDir .. "\\c0001"
   if app.directoryExists(extDir) then
     local subDirectories = app.enumerateDirectories(extDir .. "\\", "")
     table.sort(subDirectories)
