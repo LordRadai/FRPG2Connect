@@ -4,7 +4,7 @@
 -- Exports the currently open network (Name = the .mcn's name) into <OutputDir>\<Name>: writes <Name>.xml, processes it with
 -- the asset compiler into <Name>_runtimeBinary (as File > Export > Export and Process does), runs
 -- morphemeBinderPacker.exe on that folder (it writes binders), runs witchyBnd.exe on binders\runtimeBinary and on
--- every folder in binders\c0001, then deletes the folders inside binders. The output folder and the tool paths are
+-- every folder in binders\c0001, then deletes the packed folders (binders\c0001 itself stays). The output folder and the tool paths are
 -- remembered between sessions.
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/NetworkValidationDialog.lua]]
@@ -118,25 +118,50 @@ local runWitchyOnBinders = function(witchyPath, exportDir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
+-- table listChildFolders(string parentDir)
+-- Direct child folders of parentDir, without trailing separators.
+------------------------------------------------------------------------------------------------------------------------
+local listChildFolders = function(parentDir)
+  local prefix = string.lower(parentDir .. "\\")
+  local result = { }
+  for _, subDirectory in ipairs(app.enumerateDirectories(parentDir .. "\\", "")) do
+    local dir = string.gsub(subDirectory, "[\\/]+$", "")
+    -- only ever return folders that really are inside parentDir
+    if string.sub(string.lower(dir), 1, string.len(prefix)) == prefix and string.len(dir) > string.len(prefix) then
+      table.insert(result, dir)
+    end
+  end
+  return result
+end
+
+------------------------------------------------------------------------------------------------------------------------
 -- boolean deleteBinderFolders(string exportDir)
--- Deletes every folder inside binders once witchyBnd has packed them; binders itself and its archives stay.
+-- Once witchyBnd has packed them, deletes every folder inside binders except c0001, and every folder inside c0001.
+-- binders and c0001 themselves, and the files in them (the archives), stay.
 ------------------------------------------------------------------------------------------------------------------------
 local deleteBinderFolders = function(exportDir)
   local bindersDir = exportDir .. "\\binders"
-  local prefix = string.lower(bindersDir .. "\\")
-  local ok = true
+  local c0001Dir = string.lower(bindersDir .. "\\c0001")
 
-  for _, subDirectory in ipairs(app.enumerateDirectories(bindersDir .. "\\", "")) do
-    local dir = string.gsub(subDirectory, "[\\/]+$", "")
-    -- only ever delete direct children of binders
-    if string.sub(string.lower(dir), 1, string.len(prefix)) == prefix and string.len(dir) > string.len(prefix) then
-      app.execute(string.format("\"rmdir /s /q %q\"", dir), false, true)
-      if app.directoryExists(dir) then
-        app.error(string.format("FRPG2: couldn't delete %s", dir))
-        ok = false
-      else
-        app.info(string.format("FRPG2: deleted %s", dir))
+  local toDelete = { }
+  for _, dir in ipairs(listChildFolders(bindersDir)) do
+    if string.lower(dir) == c0001Dir then
+      for _, subDir in ipairs(listChildFolders(dir)) do
+        table.insert(toDelete, subDir)
       end
+    else
+      table.insert(toDelete, dir)
+    end
+  end
+
+  local ok = true
+  for _, dir in ipairs(toDelete) do
+    app.execute(string.format("\"rmdir /s /q %q\"", dir), false, true)
+    if app.directoryExists(dir) then
+      app.error(string.format("FRPG2: couldn't delete %s", dir))
+      ok = false
+    else
+      app.info(string.format("FRPG2: deleted %s", dir))
     end
   end
 
