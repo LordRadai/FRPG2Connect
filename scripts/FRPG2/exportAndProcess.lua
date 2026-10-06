@@ -57,22 +57,22 @@ end
 ------------------------------------------------------------------------------------------------------------------------
 -- boolean runPacker(string packerPath, string runtimeDir)
 ------------------------------------------------------------------------------------------------------------------------
-local runPacker = function(packerPath, runtimeDir)
+local runPacker = function(packerPath, exportDir)
   if string.len(packerPath) == 0 or not app.fileExists(packerPath) then
     ui.showMessageBox(string.format("%s not found:\n%s", kPackerExe, packerPath), "ok")
     return false
   end
 
   -- cmd.exe strips the outer quotes, so the whole command line is quoted once more (as AnimUtils.lua does)
-  local command = string.format("%q %q", packerPath, runtimeDir)
+  local command = string.format("%q %q", packerPath, exportDir)
   local exitCode = app.execute(string.format("\"%s\"", command), false, true)
   if exitCode ~= 0 then
-    app.error(string.format("FRPG2: %s failed on %s (exit code %s)", kPackerExe, runtimeDir, tostring(exitCode)))
-    ui.showMessageBox(string.format("%s failed on\n%s\n(exit code %s)", kPackerExe, runtimeDir, tostring(exitCode)), "ok")
+    app.error(string.format("FRPG2: %s failed on %s (exit code %s)", kPackerExe, exportDir, tostring(exitCode)))
+    ui.showMessageBox(string.format("%s failed on\n%s\n(exit code %s)", kPackerExe, exportDir, tostring(exitCode)), "ok")
     return false
   end
 
-  app.info(string.format("FRPG2: packed %s", runtimeDir))
+  app.info(string.format("FRPG2: packed %s", exportDir))
   return true
 end
 
@@ -146,7 +146,7 @@ local exportAndProcess = function(outputDir, packerPath)
   end
 
   app.info(string.format("FRPG2: exported %s and processed it into %s", xmlPath, runtimeDir))
-  return runPacker(packerPath, runtimeDir)
+  return runPacker(packerPath, outputDir)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
