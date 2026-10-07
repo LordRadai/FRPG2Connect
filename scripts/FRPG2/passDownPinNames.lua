@@ -1,9 +1,13 @@
 ------------------------------------------------------------------------------------------------------------------------
 -- FRPG2 Pass-Down Pin Names
 --
--- Keeps every PassDownPin named after the node that feeds it: In_<source node>. The source is found by walking the
--- pin's upstream connection out through any enclosing containers (nested pins resolve to the same source, so they
--- inherit the outer pin's name).
+-- Keeps every input pass-down pin named after the node that feeds it: In_<source node>.
+--
+-- A pass-down pin is a pin on a container (state machine / blend tree), addressed as "Container.PinName". It stores no
+-- link to its source, so the source is found by walking upstream connections: Container.In_X is fed either by a real
+-- node's output pin in the parent graph (the source), or by the parent container's own In_X pin (one nesting level up,
+-- keep walking). Every pin along such a chain resolves to the same source, so they all end up with the same name.
+-- Output pass-down pins (Result) are fed from inside their container and are left alone.
 --
 -- * Automatic: renaming a node (mcNodeRenamed) renames every pass-down pin whose source is that node. The work runs on
 --   the next idle tick, after Connect has finished its own rename.
@@ -21,34 +25,46 @@ local pendingRenamedNodes = { }
 local idleCallbackQueued = false
 
 ------------------------------------------------------------------------------------------------------------------------
--- string getLeafName(string path)
+-- string getLeafName(string nodePath)
 ------------------------------------------------------------------------------------------------------------------------
-local getLeafName = function(path)
-  local _, leaf = splitNodePath(path)
+local getLeafName = function(nodePath)
+  local _, leaf = splitNodePath(nodePath)
   if leaf == nil or leaf == "" then
-    return path
+    return nodePath
   end
   return leaf
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- boolean isAncestorOf(string ancestor, string path)
+-- boolean isInside(string path, string container)
+-- true when path is a descendant of container.
 ------------------------------------------------------------------------------------------------------------------------
-local isAncestorOf = function(ancestor, path)
-  local prefix = ancestor .. "|"
+local isInside = function(path, container)
+  local prefix = container .. "|"
   return string.sub(path, 1, string.len(prefix)) == prefix
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- table getUpstreamPins(string object)
+-- string safeGetType(string path)
 ------------------------------------------------------------------------------------------------------------------------
-local getUpstreamPins = function(object)
+local safeGetType = function(path)
+  local ok, result = pcall(getType, path)
+  if ok then
+    return result
+  end
+  return nil
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- table getUpstreamPins(string pinPath)
+------------------------------------------------------------------------------------------------------------------------
+local getUpstreamPins = function(pinPath)
   local ok, connections = pcall(listConnections, {
-    Object = object,
+    Object = pinPath,
     Pins = true,
     Upstream = true,
     Downstream = false,
-    ResolveReferences = true,
+    ResolveReferences = false,
   })
   if not ok or type(connections) ~= "table" then
     return { }
@@ -58,93 +74,72 @@ end
 
 ------------------------------------------------------------------------------------------------------------------------
 -- table listPassDownPins()
--- Every PassDownPin in the open network: anything ls() returns of that type, plus PassDownPin children of every object
--- (ls() doesn't necessarily list pass-down pins themselves).
+-- "Container.PinName" for every pin Connect reports as a PassDownPin. If it reports none (getType may not know pins),
+-- falls back to every In_* pin on an object that has children, i.e. a container.
 ------------------------------------------------------------------------------------------------------------------------
 local listPassDownPins = function()
-  local found = { }
-  local result = { }
-
-  local add = function(object)
-    if not found[object] and getType(object) == "PassDownPin" then
-      found[object] = true
-      table.insert(result, object)
-    end
-  end
+  local typed = { }
+  local guessed = { }
 
   for _, object in ipairs(ls()) do
-    add(object)
-    local ok, children = pcall(listChildren, object)
-    if ok and type(children) == "table" then
-      for _, child in ipairs(children) do
-        add(child)
+    local ok, pins = pcall(listPins, object)
+    if ok and type(pins) == "table" then
+      local okChildren, children = pcall(listChildren, object)
+      local isContainer = okChildren and type(children) == "table" and table.getn(children) > 0
+      for _, pin in ipairs(pins) do
+        local pinPath = object .. "." .. pin
+        if safeGetType(pinPath) == "PassDownPin" then
+          table.insert(typed, pinPath)
+        elseif isContainer and string.sub(pin, 1, string.len(kPinPrefix)) == kPinPrefix then
+          table.insert(guessed, pinPath)
+        end
       end
     end
   end
 
-  return result
+  if table.getn(typed) > 0 then
+    return typed
+  end
+  return guessed
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- string resolveSourceNode(string object, string passDownPin, number depth)
--- object is a PassDownPin or a pin path ("Node.Pin"). Returns the path of the node that ultimately feeds it, or nil
--- when it is unconnected or fed by more than one pin.
+-- string, string resolveSource(string pinPath, number depth)
+-- Returns the path of the node feeding the pass-down pin, or nil and a reason (unconnected, output pin, ...).
 ------------------------------------------------------------------------------------------------------------------------
-local resolveSourceNode
-resolveSourceNode = function(object, passDownPin, depth)
+local resolveSource
+resolveSource = function(pinPath, depth)
   if depth > kMaxResolveDepth then
-    return nil
+    return nil, "chain too deep"
   end
 
-  local connections = getUpstreamPins(object)
-
-  -- nothing connected to the pass-down pin itself: try the matching input pin on its container (Container.PinName).
-  if table.getn(connections) == 0 and getType(object) == "PassDownPin" then
-    local container, pinName = splitNodePath(object)
-    if container ~= nil and container ~= "" then
-      connections = getUpstreamPins(container .. "." .. pinName)
-    end
+  local container = splitPinPath(pinPath)
+  local connections = getUpstreamPins(pinPath)
+  local count = table.getn(connections)
+  if count == 0 then
+    return nil, "not connected"
   end
-
-  if table.getn(connections) ~= 1 then
-    return nil
+  if count > 1 then
+    return nil, "more than one input: " .. table.concat(connections, ", ")
   end
 
   local upstream = connections[1]
-
-  -- fed by another pass-down pin: keep walking out.
-  if getType(upstream) == "PassDownPin" then
-    return resolveSourceNode(upstream, passDownPin, depth + 1)
+  local upstreamNode = splitPinPath(upstream)
+  if upstreamNode == nil or upstreamNode == "" then
+    return nil, "unexpected upstream " .. tostring(upstream)
   end
 
-  local node = splitPinPath(upstream)
-  if node == nil or node == "" then
-    return nil
+  -- fed from inside its own container: an output pass-down pin (Result).
+  if isInside(upstreamNode, container) then
+    return nil, "output pin"
   end
 
-  if getType(node) == "PassDownPin" then
-    return resolveSourceNode(node, passDownPin, depth + 1)
+  -- fed by the enclosing container's own pass-down pin: walk one level out.
+  if isInside(container, upstreamNode) then
+    return resolveSource(upstream, depth + 1)
   end
 
-  -- fed by an input pin of one of the pass-down pin's own containers: that pin is the outer side of a pass-down pin,
-  -- so carry on from whatever feeds it.
-  if isAncestorOf(node, passDownPin) then
-    return resolveSourceNode(upstream, passDownPin, depth + 1)
-  end
-
-  return node
-end
-
-------------------------------------------------------------------------------------------------------------------------
--- string, string getExpectedPinName(string passDownPin)
--- Returns the name the pin should have and the path of its source node, or nil when the pin has no single source.
-------------------------------------------------------------------------------------------------------------------------
-local getExpectedPinName = function(passDownPin)
-  local source = resolveSourceNode(passDownPin, passDownPin, 0)
-  if source == nil then
-    return nil, nil
-  end
-  return kPinPrefix .. getLeafName(source), source
+  return upstreamNode, nil
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -163,59 +158,69 @@ local nameMatches = function(current, expected)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- boolean renamePassDownPin(string passDownPin, string newName)
+-- boolean renamePassDownPin(string pinPath, string newName)
 ------------------------------------------------------------------------------------------------------------------------
-local renamePassDownPin = function(passDownPin, newName)
-  local parent = splitNodePath(passDownPin)
-  local target = newName
-  if parent ~= nil and parent ~= "" then
-    target = parent .. "|" .. newName
-  end
+local renamePassDownPin = function(pinPath, newName)
+  local container = splitPinPath(pinPath)
 
-  -- a sibling already has the name: let Connect number it (it turns "_1" into the next free "_N").
-  if objectExists(target) then
+  -- the container already has a pin with that name: let Connect number it (it turns "_1" into the next free "_N").
+  local okExists, exists = pcall(pinExists, container .. "." .. newName)
+  if okExists and exists then
     newName = newName .. "_1"
   end
 
-  local ok, result = pcall(rename, passDownPin, newName)
+  local ok, result = pcall(rename, pinPath, newName)
   if not ok then
-    app.warning(string.format("FRPG2: could not rename pass-down pin %s to %s: %s", passDownPin, newName, tostring(result)))
+    app.warning(string.format("FRPG2: could not rename pass-down pin %s to %s: %s", pinPath, newName, tostring(result)))
     return false
   end
 
-  app.info(string.format("FRPG2: renamed pass-down pin %s -> %s", passDownPin, tostring(result or newName)))
+  app.info(string.format("FRPG2: renamed pass-down pin %s -> %s", pinPath, newName))
   return true
 end
 
 ------------------------------------------------------------------------------------------------------------------------
 -- number, number, number syncPassDownPinNames(table sourceNodes)
--- Renames every pass-down pin whose name doesn't match its source. With sourceNodes (a set of node paths) only pins
--- fed by one of those nodes are touched. Returns the number of pins renamed, resolved to a source, and found.
+-- Renames every input pass-down pin whose name doesn't match its source. With sourceNodes (a set of node paths) only
+-- pins fed by one of those nodes are touched. Returns the number of pins renamed, resolved to a source, and found.
 ------------------------------------------------------------------------------------------------------------------------
 local syncPassDownPinNames = function(sourceNodes)
   local renamed = 0
-  local checked = 0
+  local resolved = 0
   local found = 0
+  local unresolvedReported = 0
 
   isRenamingPins = true
   local ok, err = pcall(function()
-    undoBlock(function()
-      local passDownPins = listPassDownPins()
-      found = table.getn(passDownPins)
-      for _, passDownPin in ipairs(passDownPins) do
-        local expected, source = getExpectedPinName(passDownPin)
-        if expected == nil and sourceNodes == nil then
-          -- report what the pin is connected to, so an unresolved pin can be diagnosed from the log.
-          local raw = getUpstreamPins(passDownPin)
-          app.warning(string.format("FRPG2: no single source for pass-down pin %s (upstream: %s)", passDownPin, table.concat(raw, ", ")))
-        end
-        if expected ~= nil and (sourceNodes == nil or sourceNodes[source]) then
-          checked = checked + 1
-          if not nameMatches(getLeafName(passDownPin), expected) then
-            if renamePassDownPin(passDownPin, expected) then
-              renamed = renamed + 1
-            end
+    -- resolve everything before renaming anything, since a renamed pin no longer has the path an inner pin walks to.
+    local work = { }
+    local passDownPins = listPassDownPins()
+    found = table.getn(passDownPins)
+    for _, pinPath in ipairs(passDownPins) do
+      local source, reason = resolveSource(pinPath, 0)
+      if source ~= nil then
+        resolved = resolved + 1
+        if sourceNodes == nil or sourceNodes[source] then
+          local _, pinName = splitPinPath(pinPath)
+          local expected = kPinPrefix .. getLeafName(source)
+          if not nameMatches(pinName, expected) then
+            table.insert(work, { pin = pinPath, name = expected })
           end
+        end
+      elseif sourceNodes == nil and reason ~= "output pin" and unresolvedReported < 20 then
+        unresolvedReported = unresolvedReported + 1
+        app.warning(string.format("FRPG2: no source for pass-down pin %s (%s)", pinPath, reason))
+      end
+    end
+
+    if table.getn(work) == 0 then
+      return
+    end
+
+    undoBlock(function()
+      for _, item in ipairs(work) do
+        if renamePassDownPin(item.pin, item.name) then
+          renamed = renamed + 1
         end
       end
     end)
@@ -226,7 +231,7 @@ local syncPassDownPinNames = function(sourceNodes)
     app.error(string.format("FRPG2: pass-down pin sync failed: %s", tostring(err)))
   end
 
-  return renamed, checked, found
+  return renamed, resolved, found
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -253,11 +258,6 @@ local onNodeRenamed = function(oldPath, newPath)
     return
   end
 
-  -- renaming a pass-down pin by hand is not a source change.
-  if getType(newPath) == "PassDownPin" then
-    return
-  end
-
   pendingRenamedNodes[newPath] = true
 
   if idleCallbackQueued then
@@ -280,6 +280,6 @@ registerEventHandler("mcNodeRenamed", onNodeRenamed, kRenameHandlerId)
 -- Frpg2 menu command: renames every mismatched pass-down pin in the open network.
 ------------------------------------------------------------------------------------------------------------------------
 resyncFrpg2PassDownPinNames = function()
-  local renamed, checked, found = syncPassDownPinNames(nil)
-  app.info(string.format("FRPG2: found %d pass-down pins, %d with a single source, renamed %d.", found, checked, renamed))
+  local renamed, resolved, found = syncPassDownPinNames(nil)
+  app.info(string.format("FRPG2: found %d pass-down pins, %d input pins with a source, renamed %d.", found, resolved, renamed))
 end
