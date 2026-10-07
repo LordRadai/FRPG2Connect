@@ -59,15 +59,15 @@ local safeGetType = function(path)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- table getUpstreamPins(string pinPath)
+-- table getUpstreamPins(string pinPath, boolean resolveReferences)
 ------------------------------------------------------------------------------------------------------------------------
-local getUpstreamPins = function(pinPath)
+local getUpstreamPins = function(pinPath, resolveReferences)
   local ok, connections = pcall(listConnections, {
     Object = pinPath,
     Pins = true,
     Upstream = true,
     Downstream = false,
-    ResolveReferences = false,
+    ResolveReferences = resolveReferences,
   })
   if not ok or type(connections) ~= "table" then
     return { }
@@ -107,17 +107,59 @@ local listPassDownPins = function()
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- string, string resolveSource(string pinPath, number depth)
--- Returns the path of the node feeding the pass-down pin, or nil and a reason (unconnected, output pin, ...).
+-- table splitPathSegments(string path)
 ------------------------------------------------------------------------------------------------------------------------
-local resolveSource
-resolveSource = function(pinPath, depth)
+local splitPathSegments = function(path)
+  local segments = { }
+  for segment in string.gfind(path, "[^|]+") do
+    table.insert(segments, segment)
+  end
+  return segments
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- string, string getVisibleSource(string node, string container)
+-- The node that feeds container from the graph the two share: node itself, or the ancestor of node that sits in that
+-- graph (a container whose Result carries node's output out). Returns nil and a reason when node is inside container
+-- (an output pin) or encloses it (one of the enclosing container's own pass-down pins).
+------------------------------------------------------------------------------------------------------------------------
+local getVisibleSource = function(node, container)
+  if node == container or isInside(node, container) then
+    return nil, "output pin"
+  end
+
+  local nodeSegments = splitPathSegments(node)
+  local containerSegments = splitPathSegments(container)
+  local common = 0
+  while common < table.getn(nodeSegments) and common < table.getn(containerSegments)
+    and nodeSegments[common + 1] == containerSegments[common + 1] do
+    common = common + 1
+  end
+
+  if common == table.getn(nodeSegments) then
+    return nil, "fed by enclosing container " .. node
+  end
+
+  local source = { }
+  for i = 1, common + 1 do
+    table.insert(source, nodeSegments[i])
+  end
+  return table.concat(source, "|"), nil
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- string, string resolveSourceByWalking(string pinPath, number depth)
+-- Fallback when Connect can't resolve the pin's references: follows the unresolved upstream connection, walking out
+-- through enclosing containers' pass-down pins until it reaches a real node.
+------------------------------------------------------------------------------------------------------------------------
+local resolveSourceByWalking
+resolveSourceByWalking = function(pinPath, depth)
   if depth > kMaxResolveDepth then
     return nil, "chain too deep"
   end
 
   local container = splitPinPath(pinPath)
-  local connections = getUpstreamPins(pinPath)
+  local connections = getUpstreamPins(pinPath, false)
   local count = table.getn(connections)
   if count == 0 then
     return nil, "not connected"
@@ -132,17 +174,36 @@ resolveSource = function(pinPath, depth)
     return nil, "unexpected upstream " .. tostring(upstream)
   end
 
-  -- fed from inside its own container: an output pass-down pin (Result).
-  if isInside(upstreamNode, container) then
-    return nil, "output pin"
-  end
-
   -- fed by the enclosing container's own pass-down pin: walk one level out.
   if isInside(container, upstreamNode) then
-    return resolveSource(upstream, depth + 1)
+    return resolveSourceByWalking(upstream, depth + 1)
   end
 
-  return upstreamNode, nil
+  return getVisibleSource(upstreamNode, container)
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- string, string resolveSource(string pinPath)
+-- Returns the path of the node feeding the pass-down pin, or nil and a reason (unconnected, output pin, ...).
+-- Connect resolves chains of pass-down pins (pin fed by another container's pass-down pin) itself when asked to resolve
+-- references; the node it lands on is mapped back to the node visible next to the pin's container.
+------------------------------------------------------------------------------------------------------------------------
+local resolveSource = function(pinPath)
+  local container = splitPinPath(pinPath)
+  local connections = getUpstreamPins(pinPath, true)
+  local count = table.getn(connections)
+  if count == 0 then
+    return resolveSourceByWalking(pinPath, 0)
+  end
+  if count > 1 then
+    return nil, "more than one input: " .. table.concat(connections, ", ")
+  end
+
+  local upstreamNode = splitPinPath(connections[1])
+  if upstreamNode == nil or upstreamNode == "" then
+    return resolveSourceByWalking(pinPath, 0)
+  end
+  return getVisibleSource(upstreamNode, container)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -200,7 +261,7 @@ local syncPassDownPinNames = function(sourceNodes)
     local passDownPins = listPassDownPins()
     found = table.getn(passDownPins)
     for _, pinPath in ipairs(passDownPins) do
-      local source, reason = resolveSource(pinPath, 0)
+      local source, reason = resolveSource(pinPath)
       if source ~= nil then
         resolved = resolved + 1
         if sourceNodes == nil or sourceNodes[source] then
