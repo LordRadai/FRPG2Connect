@@ -13,7 +13,6 @@
 require [[ui/StaticUI.lua]]
 require [[FRPG2/convertManifestsToJson.lua]]
 require [[FRPG2/exportAndProcess.lua]]
-require [[FRPG2/passDownPinNames.lua]]
 
 local olderUserInitStaticUI = userInitStaticUI
 
@@ -28,14 +27,6 @@ local addFrpg2Menu = function(mainMenuBar)
     label = "Export, Process and pack binders...",
     onClick = function(self)
       showFrpg2ExportAndProcessDialog()
-    end,
-  }
-
-  riggingToolsMenu:addItem{
-    name = "ResyncPassDownPinNames",
-    label = "Resync Pass-Down Pin Names",
-    onClick = function(self)
-      resyncFrpg2PassDownPinNames()
     end,
   }
 
