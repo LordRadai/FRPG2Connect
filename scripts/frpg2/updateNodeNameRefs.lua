@@ -1,7 +1,10 @@
 ------------------------------------------------------------------------------------------------------------------------
--- FRPG2 Pass-Down Pin Names
+-- FRPG2 Node Name References
 --
--- Keeps every input pass-down pin named after the node that feeds it: In_<source node>.
+-- Keeps names that refer to other nodes in sync with those nodes:
+-- * every input pass-down pin is named after the node that feeds it: In_<source node>.
+-- * every transition is named after its source and destination: <source>_<destination>, plus _1, _2, ... when several
+--   transitions link the same pair (break-out transitions use their source transition's name).
 --
 -- A pass-down pin is a pin on a container (state machine / blend tree), addressed as "Container.PinName". It stores no
 -- link to its source, so the source is found by walking upstream connections: Container.In_X is fed either by a real
@@ -9,17 +12,17 @@
 -- keep walking). Every pin along such a chain resolves to the same source, so they all end up with the same name.
 -- Output pass-down pins (Result) are fed from inside their container and are left alone.
 --
--- * Automatic: renaming a node (mcNodeRenamed) renames every pass-down pin whose source is that node. The work runs on
---   the next idle tick, after Connect has finished its own rename.
--- * Manual: Frpg2 > Resync Pass-Down Pin Names renames every pin in the network whose name doesn't match its source.
+-- * Automatic: renaming a node (mcNodeRenamed) renames every pass-down pin whose source is that node and every
+--   transition leaving or entering it. The work runs on the next idle tick, after Connect has finished its own rename.
+-- * Manual: Frpg2 > Resync Node References renames every pin and transition in the network whose name doesn't match.
 ------------------------------------------------------------------------------------------------------------------------
 
 local kPinPrefix = "In_"
 local kMaxResolveDepth = 64
 local kRenameHandlerId = "FRPG2RenameHandler"
 
--- set while this script renames pins, so the mcNodeRenamed events those renames fire are ignored.
-local isRenamingPins = false
+-- set while this script renames pins or transitions, so the mcNodeRenamed events those renames fire are ignored.
+local isRenaming = false
 -- new node paths waiting for the idle callback.
 local pendingRenamedNodes = { }
 local idleCallbackQueued = false
@@ -190,7 +193,7 @@ local syncPassDownPinNames = function(sourceNodes)
   local found = 0
   local unresolvedReported = 0
 
-  isRenamingPins = true
+  isRenaming = true
   local ok, err = pcall(function()
     -- resolve everything before renaming anything, since a renamed pin no longer has the path an inner pin walks to.
     local work = { }
@@ -225,13 +228,300 @@ local syncPassDownPinNames = function(sourceNodes)
       end
     end)
   end)
-  isRenamingPins = false
+  isRenaming = false
 
   if not ok then
     app.error(string.format("FRPG2: pass-down pin sync failed: %s", tostring(err)))
   end
 
   return renamed, resolved, found
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- Transitions
+--
+-- A transition is named <source>_<destination> after the leaf names of the nodes it connects, with _1, _2, ... added
+-- when more than one transition links the same pair. The source is the single upstream connection (a state, or another
+-- transition for a break-out transition); the destination is the downstream connection that is a StateMachineNode
+-- (downstream also lists the break-out transitions leaving this one).
+------------------------------------------------------------------------------------------------------------------------
+
+local kTempTransitionPrefix = "FRPG2TmpTransition"
+local kMaxTransitionDepth = 64
+
+------------------------------------------------------------------------------------------------------------------------
+-- string safeGetBaseType(string path)
+------------------------------------------------------------------------------------------------------------------------
+local safeGetBaseType = function(path)
+  local ok, _, baseType = pcall(getType, path)
+  if ok then
+    return baseType
+  end
+  return nil
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- table listTransitions()
+------------------------------------------------------------------------------------------------------------------------
+local listTransitions = function()
+  local transitions = { }
+  for _, object in ipairs(ls()) do
+    if safeGetBaseType(object) == "Transition" then
+      table.insert(transitions, object)
+    end
+  end
+  return transitions
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- string, string resolveTransition(string transition)
+-- Returns the source and destination paths of the transition, or nil when either can't be found.
+------------------------------------------------------------------------------------------------------------------------
+local resolveTransition = function(transition)
+  local okUp, upstream = pcall(listConnections, { Object = transition, Upstream = true, Downstream = false })
+  if not okUp or type(upstream) ~= "table" or table.getn(upstream) ~= 1 then
+    return nil, nil
+  end
+
+  local okDown, downstream = pcall(listConnections, { Object = transition, Upstream = false, Downstream = true })
+  if not okDown or type(downstream) ~= "table" then
+    return nil, nil
+  end
+
+  for _, path in ipairs(downstream) do
+    if safeGetBaseType(path) == "StateMachineNode" then
+      return upstream[1], path
+    end
+  end
+  return nil, nil
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- number getTransitionDepth(string transition, table sources)
+-- 0 for a transition leaving a state, 1 for a break-out from such a transition, and so on. sources maps each
+-- transition to its source path.
+------------------------------------------------------------------------------------------------------------------------
+local getTransitionDepth = function(transition, sources)
+  local depth = 0
+  local source = sources[transition]
+  while source ~= nil and sources[source] ~= nil and depth < kMaxTransitionDepth do
+    depth = depth + 1
+    source = sources[source]
+  end
+  return depth
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- table planTransitionNames(table candidates)
+-- candidates is a list of { path, parent, base }. Gives every group of candidates sharing a parent and base the names
+-- base, base_1, base_2, ... (skipping names other children of the parent already use). Transitions that already hold
+-- one of their group's names keep it. Returns a list of { path, name } for the transitions that must be renamed.
+------------------------------------------------------------------------------------------------------------------------
+local planTransitionNames = function(candidates)
+  local candidateSet = { }
+  local groups = { }
+  local groupOrder = { }
+  for _, item in ipairs(candidates) do
+    candidateSet[item.path] = true
+    local key = item.parent .. "|" .. item.base
+    if groups[key] == nil then
+      groups[key] = { parent = item.parent, base = item.base, items = { } }
+      table.insert(groupOrder, key)
+    end
+    table.insert(groups[key].items, item)
+  end
+
+  -- names used by children of each parent that aren't being renamed here.
+  local takenByParent = { }
+  local getTaken = function(parent)
+    if takenByParent[parent] == nil then
+      local taken = { }
+      local ok, children = pcall(listChildren, parent)
+      if ok and type(children) == "table" then
+        for _, child in ipairs(children) do
+          if not candidateSet[child] then
+            taken[getLeafName(child)] = true
+          end
+        end
+      end
+      takenByParent[parent] = taken
+    end
+    return takenByParent[parent]
+  end
+
+  local work = { }
+  for _, key in ipairs(groupOrder) do
+    local group = groups[key]
+    local taken = getTaken(group.parent)
+
+    local wanted = { }
+    local wantedSet = { }
+    local suffix = 0
+    while table.getn(wanted) < table.getn(group.items) do
+      local name = group.base
+      if suffix > 0 then
+        name = group.base .. "_" .. suffix
+      end
+      if not taken[name] then
+        table.insert(wanted, name)
+        wantedSet[name] = true
+      end
+      suffix = suffix + 1
+    end
+
+    local remaining = { }
+    for _, item in ipairs(group.items) do
+      local current = getLeafName(item.path)
+      if wantedSet[current] then
+        wantedSet[current] = nil
+      else
+        table.insert(remaining, item)
+      end
+    end
+    table.sort(remaining, function(a, b) return a.path < b.path end)
+
+    local index = 1
+    for _, name in ipairs(wanted) do
+      if wantedSet[name] then
+        table.insert(work, { path = remaining[index].path, name = name })
+        index = index + 1
+      end
+    end
+
+    -- every name in the group is now used by a child of the parent.
+    for _, name in ipairs(wanted) do
+      taken[name] = true
+    end
+  end
+
+  return work
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- table, number applyTransitionNames(table work)
+-- Renames each transition in two steps (to a temporary name, then to its final one) so names can be swapped between
+-- transitions of the same parent. Returns a map of old path -> new path, and the number renamed.
+------------------------------------------------------------------------------------------------------------------------
+local applyTransitionNames = function(work)
+  local newPaths = { }
+  local renamed = 0
+
+  local temp = { }
+  local tempIndex = 0
+  for _, item in ipairs(work) do
+    local parent = splitNodePath(item.path)
+    local tempName
+    repeat
+      tempIndex = tempIndex + 1
+      tempName = kTempTransitionPrefix .. tempIndex
+    until not objectExists(parent .. "|" .. tempName)
+
+    local ok, result = pcall(rename, item.path, tempName)
+    if ok then
+      table.insert(temp, { old = item.path, path = result or (parent .. "|" .. tempName), name = item.name })
+    else
+      app.warning(string.format("FRPG2: could not rename transition %s to %s: %s", item.path, item.name, tostring(result)))
+    end
+  end
+
+  for _, item in ipairs(temp) do
+    local ok, result = pcall(rename, item.path, item.name)
+    if ok then
+      local parent = splitNodePath(item.path)
+      newPaths[item.old] = result or (parent .. "|" .. item.name)
+      renamed = renamed + 1
+      app.info(string.format("FRPG2: renamed transition %s -> %s", item.old, item.name))
+    else
+      newPaths[item.old] = item.path
+      app.warning(string.format("FRPG2: could not rename transition %s to %s (left as %s): %s",
+        item.old, item.name, item.path, tostring(result)))
+    end
+  end
+
+  return newPaths, renamed
+end
+
+------------------------------------------------------------------------------------------------------------------------
+-- number, number syncTransitionNames(table changedNodes)
+-- Renames every transition whose name doesn't match its source and destination. With changedNodes (a set of node
+-- paths) only transitions leaving or entering one of those nodes are touched; a transition renamed this way counts as
+-- changed for its break-out transitions. Returns the number of transitions renamed and found.
+------------------------------------------------------------------------------------------------------------------------
+local syncTransitionNames = function(changedNodes)
+  local renamed = 0
+  local found = 0
+
+  isRenaming = true
+  local ok, err = pcall(function()
+    local transitions = listTransitions()
+    found = table.getn(transitions)
+    if found == 0 then
+      return
+    end
+
+    local changed = nil
+    if changedNodes ~= nil then
+      changed = { }
+      for path in pairs(changedNodes) do
+        changed[path] = true
+      end
+    end
+
+    -- break-out transitions are named after their source transition, so name sources first: one depth at a time.
+    local sources = { }
+    for _, transition in ipairs(transitions) do
+      sources[transition] = resolveTransition(transition)
+    end
+    local levels = { }
+    local maxDepth = 0
+    for _, transition in ipairs(transitions) do
+      local depth = getTransitionDepth(transition, sources)
+      if levels[depth] == nil then
+        levels[depth] = { }
+      end
+      table.insert(levels[depth], transition)
+      if depth > maxDepth then
+        maxDepth = depth
+      end
+    end
+
+    undoBlock(function()
+      for depth = 0, maxDepth do
+        local candidates = { }
+        for _, transition in ipairs(levels[depth] or { }) do
+          -- resolve again: a source renamed at the previous depth has a new path.
+          local source, dest = resolveTransition(transition)
+          if source ~= nil and (changed == nil or changed[source] or changed[dest]) then
+            table.insert(candidates, {
+              path = transition,
+              parent = splitNodePath(transition),
+              base = getLeafName(source) .. "_" .. getLeafName(dest),
+            })
+          elseif source == nil and changed == nil then
+            app.warning(string.format("FRPG2: no source or destination for transition %s", transition))
+          end
+        end
+
+        local work = planTransitionNames(candidates)
+        if table.getn(work) > 0 then
+          local newPaths, count = applyTransitionNames(work)
+          renamed = renamed + count
+          if changed ~= nil then
+            for _, newPath in pairs(newPaths) do
+              changed[newPath] = true
+            end
+          end
+        end
+      end
+    end)
+  end)
+  isRenaming = false
+
+  if not ok then
+    app.error(string.format("FRPG2: transition name sync failed: %s", tostring(err)))
+  end
+
+  return renamed, found
 end
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -247,6 +537,7 @@ local processPendingRenames = function()
     return
   end
 
+  syncTransitionNames(sourceNodes)
   syncPassDownPinNames(sourceNodes)
 end
 
@@ -254,7 +545,7 @@ end
 -- nil onNodeRenamed(string oldPath, string newPath)
 ------------------------------------------------------------------------------------------------------------------------
 local onNodeRenamed = function(oldPath, newPath)
-  if isRenamingPins or type(newPath) ~= "string" then
+  if isRenaming or type(newPath) ~= "string" then
     return
   end
 
@@ -276,10 +567,13 @@ end
 registerEventHandler("mcNodeRenamed", onNodeRenamed, kRenameHandlerId)
 
 ------------------------------------------------------------------------------------------------------------------------
--- nil resyncFrpg2PassDownPinNames()
--- Frpg2 menu command: renames every mismatched pass-down pin in the open network.
+-- nil resyncNodeNameRefs()
+-- Frpg2 menu command: renames every mismatched transition and pass-down pin in the open network.
 ------------------------------------------------------------------------------------------------------------------------
 resyncNodeNameRefs = function()
+  local transitionsRenamed, transitionsFound = syncTransitionNames(nil)
+  app.info(string.format("FRPG2: found %d transitions, renamed %d.", transitionsFound, transitionsRenamed))
+
   local renamed, resolved, found = syncPassDownPinNames(nil)
   app.info(string.format("FRPG2: found %d pass-down pins, %d input pins with a source, renamed %d.", found, resolved, renamed))
 end
