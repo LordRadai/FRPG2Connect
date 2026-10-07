@@ -76,16 +76,33 @@ local getUpstreamPins = function(pinPath, resolveReferences)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
+-- boolean isStateInStateMachine(string object)
+-- A state's pass-down pins are the state machine's own pins shared across all its states: they can't be renamed on the
+-- state, renaming the state machine's pin renames them all.
+------------------------------------------------------------------------------------------------------------------------
+local isStateInStateMachine = function(object)
+  local parent = splitNodePath(object)
+  if parent == nil or parent == "" then
+    return false
+  end
+  return safeGetType(parent) == "StateMachine"
+end
+
+------------------------------------------------------------------------------------------------------------------------
 -- table listPassDownPins()
 -- "Container.PinName" for every pin Connect reports as a PassDownPin. If it reports none (getType may not know pins),
--- falls back to every In_* pin on an object that has children, i.e. a container.
+-- falls back to every In_* pin on an object that has children, i.e. a container. Pins on states are skipped (see
+-- isStateInStateMachine).
 ------------------------------------------------------------------------------------------------------------------------
 local listPassDownPins = function()
   local typed = { }
   local guessed = { }
 
   for _, object in ipairs(ls()) do
-    local ok, pins = pcall(listPins, object)
+    local ok, pins = false, nil
+    if not isStateInStateMachine(object) then
+      ok, pins = pcall(listPins, object)
+    end
     if ok and type(pins) == "table" then
       local okChildren, children = pcall(listChildren, object)
       local isContainer = okChildren and type(children) == "table" and table.getn(children) > 0
@@ -158,7 +175,14 @@ resolveSourceByWalking = function(pinPath, depth)
     return nil, "chain too deep"
   end
 
-  local container = splitPinPath(pinPath)
+  local container, pinName = splitPinPath(pinPath)
+
+  -- a state's pin is its state machine's pin: walk from that one.
+  if isStateInStateMachine(container) then
+    container = splitNodePath(container)
+    pinPath = container .. "." .. pinName
+  end
+
   local connections = getUpstreamPins(pinPath, false)
   local count = table.getn(connections)
   if count == 0 then
