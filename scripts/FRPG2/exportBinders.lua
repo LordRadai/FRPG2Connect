@@ -9,12 +9,12 @@
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/NetworkValidationDialog.lua]]
 
-local kOutputDirPreference = "FRPG2ExportAndProcessDir"
+local kOutputDirPreference = "FRPG2ExportBindersDir"
 local kPackerPreference = "FRPG2MorphemeBinderPackerPath"
 local kPackerExe = "morphemeBinderPacker.exe"
 local kWitchyPreference = "FRPG2WitchyBndPath"
 local kWitchyExe = "witchyBnd.exe"
-local kDialogName = "FRPG2ExportAndProcessDialog"
+local kDialogName = "FRPG2ExportBindersDialog"
 
 ------------------------------------------------------------------------------------------------------------------------
 -- string getRememberedString(string preference)
@@ -261,9 +261,9 @@ local exportAndProcess = function(outputDir, packerPath, witchyPath)
 end
 
 ------------------------------------------------------------------------------------------------------------------------
--- nil showFrpg2ExportAndProcessDialog()
+-- nil showFrpg2ExportBindersDialog()
 ------------------------------------------------------------------------------------------------------------------------
-showFrpg2ExportAndProcessDialog = function()
+showFrpg2ExportBindersDialog = function()
   if mcn.inCommandLineMode() then
     return
   end
@@ -272,7 +272,7 @@ showFrpg2ExportAndProcessDialog = function()
   if not dlg then
     dlg = ui.createModelessDialog{
       name = kDialogName,
-      caption = "Export, Process and pack binders",
+      caption = "Export Binders",
       centre = true,
       resize = true,
     }

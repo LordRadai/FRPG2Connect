@@ -12,7 +12,7 @@
 ------------------------------------------------------------------------------------------------------------------------
 require [[ui/StaticUI.lua]]
 require [[FRPG2/convertManifestsToJson.lua]]
-require [[FRPG2/exportAndProcess.lua]]
+require [[FRPG2/exportBinders.lua]]
 require [[FRPG2/updateNodeNameRefs.lua]]
 
 local olderUserInitStaticUI = userInitStaticUI
@@ -24,10 +24,10 @@ local addFrpg2Menu = function(mainMenuBar)
   local riggingToolsMenu = mainMenuBar:addSubMenu{ name = "Frpg2", label = "&Frpg2" }
 
   riggingToolsMenu:addItem{
-    name = "ExportAndProcess",
-    label = "Export, Process and pack binders...",
+    name = "ExportBinders",
+    label = "Export Binders",
     onClick = function(self)
-      showFrpg2ExportAndProcessDialog()
+      showFrpg2ExportBindersDialog()
     end,
   }
 
