@@ -144,8 +144,8 @@ local showMissingNodesDialog = function(networkName, numChecked, missing)
 
   dlg:beginVSizer{ flags = "expand", proportion = 1 }
     dlg:addStaticText{
-      text = string.format("%s is missing %d of the %d nodes Dark Souls II needs:",
-        networkName, table.getn(missing), numChecked),
+      text = string.format("%s: missing %d states. This does not mean a network is invalid, but a character without some key states cannot perform certain actions.",
+        networkName, table.getn(missing)),
       font = "bold",
     }
 
