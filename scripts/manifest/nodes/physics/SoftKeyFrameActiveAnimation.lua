@@ -178,12 +178,12 @@ registerPhysicsNode("SoftKeyFrameAndActiveAnimation",
       if KWeightNodeInfo ~= nil then
         stream:writeNetworkNodeId(KWeightNodeInfo.id, "KWeightNodeID", KWeightNodeInfo.pinIndex)
       else
-        stream:writeNetworkNodeId(-1, "KWeightNodeID")
+        stream:writeNetworkNodeId(-1, "KWeightNodeID", 0)
       end
       if AAWeightNodeInfo ~= nil then
         stream:writeNetworkNodeId(AAWeightNodeInfo.id, "AAWeightNodeID", AAWeightNodeInfo.pinIndex)
       else
-        stream:writeNetworkNodeId(-1, "AAWeightNodeID")
+        stream:writeNetworkNodeId(-1, "AAWeightNodeID", 0)
       end
       
       stream:writeBool(EnableCollision, "EnableCollision")

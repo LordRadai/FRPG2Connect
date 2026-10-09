@@ -151,7 +151,7 @@ registerPhysicsNode("SoftKeyFrame",
       if KWeightNodeInfo ~= nil then
         stream:writeNetworkNodeId(KWeightNodeInfo.id, "KWeightNodeID", KWeightNodeInfo.pinIndex)
       else
-        stream:writeNetworkNodeId(-1, "KWeightNodeID")
+        stream:writeNetworkNodeId(-1, "KWeightNodeID", 0)
       end
       stream:writeNetworkNodeId(AAWeightNodeID, "AAWeightNodeID")
 

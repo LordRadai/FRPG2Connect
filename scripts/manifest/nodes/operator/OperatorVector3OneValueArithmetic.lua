@@ -141,7 +141,7 @@ registerNode("OperatorVector3OneInputArithmetic",
       if operation == "max" then operationCode = 5 end
 
       if (inputInfo == nil) then
-        Stream:writeNetworkNodeId(-1, "Input")
+        Stream:writeNetworkNodeId(-1, "Input", 0)
       else
         Stream:writeNetworkNodeId(inputInfo.id, "Input", inputInfo.pinIndex)
       end

@@ -122,7 +122,7 @@ registerPhysicsNode("ActiveAnimation",
         local weightNodeInfo = getConnectedNodeInfo(weightPin)
         stream:writeNetworkNodeId(weightNodeInfo.id, "AAWeightNodeID", weightNodeInfo.pinIndex)
       else
-        stream:writeNetworkNodeId(-1, "AAWeightNodeID")
+        stream:writeNetworkNodeId(-1, "AAWeightNodeID", 0)
       end
 
       local enableCollision = true

@@ -103,7 +103,7 @@ registerNode("SingleFrame",
         controlNode = getConnectedNodeInfo(controlPin)
         Stream:writeNetworkNodeId(controlNode.id, "Control", controlNode.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "Control")
+        Stream:writeNetworkNodeId(-1, "Control", 0)
       end
     end,
 

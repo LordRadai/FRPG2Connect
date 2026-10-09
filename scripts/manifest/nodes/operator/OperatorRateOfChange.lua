@@ -70,7 +70,7 @@ registerNode("OperatorRateOfChange",
       if inNodeInfo then
         Stream:writeNetworkNodeId(inNodeInfo.id, "Input", inNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "Input")
+        Stream:writeNetworkNodeId(-1, "Input", 0)
       end
 
       Stream:writeBool(true, "IsScalar")

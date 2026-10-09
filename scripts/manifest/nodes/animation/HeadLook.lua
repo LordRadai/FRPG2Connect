@@ -239,12 +239,12 @@ registerNode("HeadLook",
       if targetNodeInfo then
         Stream:writeNetworkNodeId(targetNodeInfo.id, "Target", targetNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "Target")
+        Stream:writeNetworkNodeId(-1, "Target", 0)
       end
       if blendWeightNodeInfo then
         Stream:writeNetworkNodeId(blendWeightNodeInfo.id, "BlendWeight", blendWeightNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "BlendWeight")
+        Stream:writeNetworkNodeId(-1, "BlendWeight", 0)
       end
 
       local updateTargetByDeltas = getAttribute(node, "UpdateTargetByDeltas")

@@ -90,7 +90,7 @@ registerNode("OperatorReRange",
       local operationCode = 7
 
       if (inputInfo == nil) then
-        Stream:writeNetworkNodeId(-1, "Input")
+        Stream:writeNetworkNodeId(-1, "Input", 0)
       else
         Stream:writeNetworkNodeId(inputInfo.id, "Input", inputInfo.pinIndex)
       end

@@ -390,7 +390,7 @@ registerNode("ClosestAnim",
       if deadBlendWeightNodeInfo then
         stream:writeNetworkNodeId(deadBlendWeightNodeInfo.id, "DeadBlendWeight", deadBlendWeightNodeInfo.pinIndex)
       else
-        stream:writeNetworkNodeId(-1, "DeadBlendWeight")
+        stream:writeNetworkNodeId(-1, "DeadBlendWeight", 0)
       end
 
       -- write connected node runtime ids

@@ -486,13 +486,13 @@ registerNode("BasicUnevenTerrain",
       if iKHipsWeightNodeInfo then
         Stream:writeNetworkNodeId(iKHipsWeightNodeInfo.id, "IkHipsWeight", iKHipsWeightNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "IkHipsWeight")
+        Stream:writeNetworkNodeId(-1, "IkHipsWeight", 0)
       end
 
       if iKFkBlendWeightNodeInfo then
         Stream:writeNetworkNodeId(iKFkBlendWeightNodeInfo.id, "IkFkBlendWeight", iKFkBlendWeightNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "IkFkBlendWeight")
+        Stream:writeNetworkNodeId(-1, "IkFkBlendWeight", 0)
       end
 
       -- Serialise world up axis as an index

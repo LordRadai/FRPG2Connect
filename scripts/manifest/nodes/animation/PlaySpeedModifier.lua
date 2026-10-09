@@ -99,7 +99,7 @@ registerNode("PlaySpeedModifier",
         weightNodeInfo = getConnectedNodeInfo(weightPin)
         Stream:writeNetworkNodeId(weightNodeInfo.id, "Weight", weightNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "Weight")
+        Stream:writeNetworkNodeId(-1, "Weight", 0)
       end
     end,
 

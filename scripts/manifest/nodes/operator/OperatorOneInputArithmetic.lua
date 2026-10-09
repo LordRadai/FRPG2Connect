@@ -153,7 +153,7 @@ registerNode("OperatorOneInputArithmetic",
       if operation == "emult" then operationCode = 6 end
 
       if (inputInfo == nil) then
-        Stream:writeNetworkNodeId(-1, "Input")
+        Stream:writeNetworkNodeId(-1, "Input", 0)
       else
         Stream:writeNetworkNodeId(inputInfo.id, "Input", inputInfo.pinIndex)
       end

@@ -102,7 +102,7 @@ registerNode("ScaleToDuration",
         durationNodeInfo = getConnectedNodeInfo(durationPin)
         Stream:writeNetworkNodeId(durationNodeInfo.id, "Duration", durationNodeInfo.pinIndex)
       else
-        Stream:writeNetworkNodeId(-1, "Duration")
+        Stream:writeNetworkNodeId(-1, "Duration", 0)
       end
     end,
 
