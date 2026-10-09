@@ -14,6 +14,7 @@ require [[ui/StaticUI.lua]]
 require [[FRPG2/convertManifestsToJson.lua]]
 require [[FRPG2/exportBinders.lua]]
 require [[FRPG2/updateNodeNameRefs.lua]]
+require [[FRPG2/validateNetwork.lua]]
 
 local olderUserInitStaticUI = userInitStaticUI
 
@@ -28,6 +29,14 @@ local addFrpg2Menu = function(mainMenuBar)
     label = "Export Binders",
     onClick = function(self)
       showFrpg2ExportBindersDialog()
+    end,
+  }
+
+  riggingToolsMenu:addItem{
+    name = "ValidateNetwork",
+    label = "Validate Network",
+    onClick = function(self)
+      validateFrpg2Network()
     end,
   }
 
